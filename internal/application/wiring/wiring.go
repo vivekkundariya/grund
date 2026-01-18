@@ -7,6 +7,7 @@ import (
 
 	"github.com/vivekkundariya/grund/internal/application/commands"
 	"github.com/vivekkundariya/grund/internal/application/queries"
+	appconfig "github.com/vivekkundariya/grund/internal/config"
 	"github.com/vivekkundariya/grund/internal/infrastructure/aws"
 	"github.com/vivekkundariya/grund/internal/infrastructure/config"
 	"github.com/vivekkundariya/grund/internal/infrastructure/docker"
@@ -16,6 +17,11 @@ import (
 // Container holds all dependencies (Dependency Injection Container)
 // This follows the Dependency Inversion Principle
 type Container struct {
+	// Configuration
+	ConfigResolver   *appconfig.ConfigResolver
+	OrchestrationRoot string
+	ServicesPath      string
+
 	// Repositories
 	ServiceRepo  interface{} // ports.ServiceRepository
 	RegistryRepo interface{} // ports.ServiceRegistryRepository
@@ -38,11 +44,21 @@ type Container struct {
 }
 
 // NewContainer creates a new dependency injection container
+// This is the legacy function for backward compatibility
 func NewContainer(orchestrationRoot string) (*Container, error) {
-	// Find services.yaml
 	servicesPath := filepath.Join(orchestrationRoot, "services.yaml")
 	if _, err := os.Stat(servicesPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("services.yaml not found at %s", servicesPath)
+	}
+	
+	return NewContainerWithConfig(orchestrationRoot, servicesPath, nil)
+}
+
+// NewContainerWithConfig creates a new dependency injection container with config resolver
+func NewContainerWithConfig(orchestrationRoot, servicesPath string, configResolver *appconfig.ConfigResolver) (*Container, error) {
+	// Validate services file exists
+	if _, err := os.Stat(servicesPath); os.IsNotExist(err) {
+		return nil, fmt.Errorf("services file not found at %s", servicesPath)
 	}
 
 	// Initialize repositories
@@ -53,6 +69,12 @@ func NewContainer(orchestrationRoot string) (*Container, error) {
 
 	serviceRepo := config.NewServiceRepository(registryRepo)
 
+	// Get LocalStack endpoint from config or use default
+	localstackEndpoint := "http://localhost:4566"
+	if configResolver != nil {
+		localstackEndpoint = configResolver.GetLocalStackEndpoint()
+	}
+
 	// Initialize infrastructure adapters
 	composeFile := docker.GetComposeFilePath(orchestrationRoot)
 	orchestrator := docker.NewDockerOrchestrator(composeFile, orchestrationRoot)
@@ -60,7 +82,7 @@ func NewContainer(orchestrationRoot string) (*Container, error) {
 
 	// Initialize provisioners
 	postgresProvisioner := docker.NewPostgresProvisioner()
-	localstackProvisioner := aws.NewLocalStackProvisioner("http://localhost:4566")
+	localstackProvisioner := aws.NewLocalStackProvisioner(localstackEndpoint)
 	provisioner := docker.NewCompositeInfrastructureProvisioner(
 		postgresProvisioner,
 		localstackProvisioner,
@@ -92,6 +114,9 @@ func NewContainer(orchestrationRoot string) (*Container, error) {
 	)
 
 	return &Container{
+		ConfigResolver:        configResolver,
+		OrchestrationRoot:     orchestrationRoot,
+		ServicesPath:          servicesPath,
 		ServiceRepo:           serviceRepo,
 		RegistryRepo:          registryRepo,
 		Orchestrator:          orchestrator,
