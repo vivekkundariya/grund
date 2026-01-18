@@ -5,33 +5,166 @@ bin/
 *.dll
 *.so
 *.dylib
-
-# Test binary, built with `go test -c`
 *.test
 
 # Output of the go coverage tool
 *.out
+*.coverprofile
 
 # Dependency directories
 vendor/
 
 # Go workspace file
 go.work
+go.work.sum
 
 # Generated files
 docker-compose.generated.yaml
 
-# IDE
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
 # Logs
 logs/
 *.log
+
+# ============================================
+# IDE and Editor files
+# ============================================
+
+# VSCode
+.vscode/
+*.code-workspace
+.history/
+
+# Cursor
+.cursor/
+.cursorrules
+
+# JetBrains IDEs (IntelliJ IDEA, GoLand, etc.)
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Vim
+*.swp
+*.swo
+*~
+.vim/
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# ============================================
+# Operating System files
+# ============================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+*~
+.directory
+.Trash-*
+.nfs*
+
+# ============================================
+# Build and Test artifacts
+# ============================================
+
+# Go build cache
+.cache/
+
+# Test binaries
+*.test
+
+# Coverage reports
+coverage.html
+coverage.xml
+coverage.txt
+
+# ============================================
+# Docker and Container files
+# ============================================
+
+# Docker volumes and data
+.docker/
+docker-data/
+
+# ============================================
+# Environment and Configuration
+# ============================================
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+*.env
+
+# Local configuration overrides
+config.local.yaml
+services.local.yaml
+
+# ============================================
+# Temporary files
+# ============================================
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# ============================================
+# Project specific
+# ============================================
+
+# Generated compose files
+docker-compose.generated.yaml
+docker-compose.override.yaml
+
+# Local development data
+.localdev/
+.grund/
