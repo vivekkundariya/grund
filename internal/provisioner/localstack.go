@@ -6,9 +6,11 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/credentials"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
+	sqstypes "github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/vivekkundariya/grund/internal/config"
 )
 
@@ -56,7 +58,7 @@ func ProvisionAWSResources(ctx context.Context, resources AWSResources, endpoint
 		// Get queue ARN for SNS subscription
 		attrs, _ := sqsClient.GetQueueAttributes(ctx, &sqs.GetQueueAttributesInput{
 			QueueUrl:       result.QueueUrl,
-			AttributeNames: []string{"QueueArn"},
+			AttributeNames: []sqstypes.QueueAttributeName{sqstypes.QueueAttributeNameQueueArn},
 		})
 		if attrs.Attributes != nil {
 			queueArns[queue.Name] = attrs.Attributes["QueueArn"]
@@ -117,7 +119,7 @@ func createLocalStackConfig(endpoint string) (aws.Config, error) {
 					SigningRegion: "us-east-1",
 				}, nil
 			})),
-		awsconfig.WithCredentialsProvider(aws.NewStaticCredentialsProvider("test", "test", "")),
+		awsconfig.WithCredentialsProvider(credentials.NewStaticCredentialsProvider("test", "test", "")),
 	)
 	return cfg, err
 }

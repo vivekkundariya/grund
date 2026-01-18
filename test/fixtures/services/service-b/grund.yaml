@@ -1,0 +1,30 @@
+version: "1"
+
+service:
+  name: service-b
+  type: go
+  port: 8081
+  
+  build:
+    dockerfile: Dockerfile
+    context: .
+    
+  health:
+    endpoint: /health
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+requires:
+  services: []
+    
+  infrastructure:
+    mongodb:
+      database: service_b_db
+
+env:
+  APP_ENV: development
+  LOG_LEVEL: debug
+  
+env_refs:
+  MONGO_URL: "mongodb://${mongodb.host}:${mongodb.port}/${self.mongodb.database}"

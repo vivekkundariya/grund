@@ -2,7 +2,6 @@ package ui
 
 import (
 	"fmt"
-	"time"
 )
 
 // Spinner provides a simple spinner for progress indication
