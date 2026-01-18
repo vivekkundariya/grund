@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yourorg/grund/internal/application/ports"
-	"github.com/yourorg/grund/internal/domain/infrastructure"
+	"github.com/vivekkundariya/grund/internal/application/ports"
+	"github.com/vivekkundariya/grund/internal/domain/infrastructure"
 )
 
 // PostgresProvisioner implements infrastructure provisioning for PostgreSQL

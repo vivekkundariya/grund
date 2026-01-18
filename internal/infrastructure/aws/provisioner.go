@@ -9,8 +9,8 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
-	"github.com/yourorg/grund/internal/application/ports"
-	"github.com/yourorg/grund/internal/domain/infrastructure"
+	"github.com/vivekkundariya/grund/internal/application/ports"
+	"github.com/vivekkundariya/grund/internal/domain/infrastructure"
 )
 
 // LocalStackProvisioner implements InfrastructureProvisioner for LocalStack

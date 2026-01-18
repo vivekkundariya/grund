@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/yourorg/grund/internal/application/ports"
+	"github.com/vivekkundariya/grund/internal/application/ports"
 )
 
 // HTTPHealthChecker implements HealthChecker using HTTP

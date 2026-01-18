@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/yourorg/grund/internal/application/ports"
-	"github.com/yourorg/grund/internal/domain/dependency"
-	"github.com/yourorg/grund/internal/domain/infrastructure"
-	"github.com/yourorg/grund/internal/domain/service"
+	"github.com/vivekkundariya/grund/internal/application/ports"
+	"github.com/vivekkundariya/grund/internal/domain/dependency"
+	"github.com/vivekkundariya/grund/internal/domain/infrastructure"
+	"github.com/vivekkundariya/grund/internal/domain/service"
 )
 
 // UpCommand represents the command to start services

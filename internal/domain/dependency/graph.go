@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yourorg/grund/internal/domain/service"
+	"github.com/vivekkundariya/grund/internal/domain/service"
 )
 
 // Graph represents the dependency graph of services

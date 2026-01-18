@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yourorg/grund/internal/config"
+	"github.com/vivekkundariya/grund/internal/config"
 )
 
 // ResolveEnvRefs resolves environment variable references

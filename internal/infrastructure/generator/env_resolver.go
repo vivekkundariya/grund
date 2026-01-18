@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/yourorg/grund/internal/application/ports"
+	"github.com/vivekkundariya/grund/internal/application/ports"
 )
 
 // EnvironmentResolverImpl implements EnvironmentResolver

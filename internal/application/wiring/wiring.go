@@ -5,20 +5,20 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/yourorg/grund/internal/application/commands"
-	"github.com/yourorg/grund/internal/application/queries"
-	"github.com/yourorg/grund/internal/infrastructure/aws"
-	"github.com/yourorg/grund/internal/infrastructure/config"
-	"github.com/yourorg/grund/internal/infrastructure/docker"
-	"github.com/yourorg/grund/internal/infrastructure/generator"
+	"github.com/vivekkundariya/grund/internal/application/commands"
+	"github.com/vivekkundariya/grund/internal/application/queries"
+	"github.com/vivekkundariya/grund/internal/infrastructure/aws"
+	"github.com/vivekkundariya/grund/internal/infrastructure/config"
+	"github.com/vivekkundariya/grund/internal/infrastructure/docker"
+	"github.com/vivekkundariya/grund/internal/infrastructure/generator"
 )
 
 // Container holds all dependencies (Dependency Injection Container)
 // This follows the Dependency Inversion Principle
 type Container struct {
 	// Repositories
-	ServiceRepo      interface{} // ports.ServiceRepository
-	RegistryRepo     interface{} // ports.ServiceRegistryRepository
+	ServiceRepo  interface{} // ports.ServiceRepository
+	RegistryRepo interface{} // ports.ServiceRegistryRepository
 
 	// Infrastructure
 	Orchestrator     interface{} // ports.ContainerOrchestrator
@@ -34,7 +34,7 @@ type Container struct {
 
 	// Query Handlers
 	StatusQueryHandler *queries.StatusQueryHandler
-	ConfigQueryHandler  *queries.ConfigQueryHandler
+	ConfigQueryHandler *queries.ConfigQueryHandler
 }
 
 // NewContainer creates a new dependency injection container
@@ -92,17 +92,17 @@ func NewContainer(orchestrationRoot string) (*Container, error) {
 	)
 
 	return &Container{
-		ServiceRepo:          serviceRepo,
-		RegistryRepo:         registryRepo,
-		Orchestrator:         orchestrator,
-		Provisioner:          provisioner,
-		ComposeGenerator:     composeGenerator,
-		EnvResolver:          envResolver,
-		HealthChecker:        healthChecker,
-		UpCommandHandler:     upHandler,
+		ServiceRepo:           serviceRepo,
+		RegistryRepo:          registryRepo,
+		Orchestrator:          orchestrator,
+		Provisioner:           provisioner,
+		ComposeGenerator:      composeGenerator,
+		EnvResolver:           envResolver,
+		HealthChecker:         healthChecker,
+		UpCommandHandler:      upHandler,
 		DownCommandHandler:    downHandler,
 		RestartCommandHandler: restartHandler,
-		StatusQueryHandler:   statusHandler,
+		StatusQueryHandler:    statusHandler,
 		ConfigQueryHandler:    configHandler,
 	}, nil
 }

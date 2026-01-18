@@ -1,8 +1,8 @@
 package queries
 
 import (
-	"github.com/yourorg/grund/internal/application/ports"
-	"github.com/yourorg/grund/internal/domain/service"
+	"github.com/vivekkundariya/grund/internal/application/ports"
+	"github.com/vivekkundariya/grund/internal/domain/service"
 )
 
 // ConfigQuery represents a query for service configuration

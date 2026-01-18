@@ -3,8 +3,8 @@ package ports
 import (
 	"context"
 
-	"github.com/yourorg/grund/internal/domain/infrastructure"
-	"github.com/yourorg/grund/internal/domain/service"
+	"github.com/vivekkundariya/grund/internal/domain/infrastructure"
+	"github.com/vivekkundariya/grund/internal/domain/service"
 )
 
 // ContainerOrchestrator defines the interface for container orchestration

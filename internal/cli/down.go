@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/yourorg/grund/internal/application/commands"
+	"github.com/vivekkundariya/grund/internal/application/commands"
 )
 
 var downCmd = &cobra.Command{

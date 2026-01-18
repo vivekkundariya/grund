@@ -3,7 +3,7 @@ package main
 import (
 	"os"
 
-	"github.com/yourorg/grund/internal/cli"
+	"github.com/vivekkundariya/grund/internal/cli"
 )
 
 func main() {

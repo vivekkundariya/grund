@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/sns"
 	"github.com/aws/aws-sdk-go-v2/service/sqs"
-	"github.com/yourorg/grund/internal/config"
+	"github.com/vivekkundariya/grund/internal/config"
 )
 
 // AWSResources aggregates all AWS resources needed

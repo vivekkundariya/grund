@@ -5,8 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/yourorg/grund/internal/config"
-	"github.com/yourorg/grund/internal/resolver"
+	"github.com/vivekkundariya/grund/internal/config"
+	"github.com/vivekkundariya/grund/internal/resolver"
 )
 
 // GenerateCompose generates a docker-compose.yaml file from the resolved services

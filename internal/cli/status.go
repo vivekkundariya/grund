@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-	"github.com/yourorg/grund/internal/application/queries"
+	"github.com/vivekkundariya/grund/internal/application/queries"
 )
 
 var statusCmd = &cobra.Command{

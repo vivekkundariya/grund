@@ -1,7 +1,7 @@
 package ports
 
 import (
-	"github.com/yourorg/grund/internal/domain/service"
+	"github.com/vivekkundariya/grund/internal/domain/service"
 )
 
 // ServiceRepository defines the interface for service persistence
