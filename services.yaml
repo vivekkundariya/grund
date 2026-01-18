@@ -1,0 +1,27 @@
+# services.yaml
+version: "1"
+
+services:
+  core-monolith:
+    repo: git@github.com:yourorg/core-monolith.git
+    path: ~/projects/core-monolith
+    
+  service-a:
+    repo: git@github.com:yourorg/service-a.git
+    path: ~/projects/service-a
+    
+  service-b:
+    repo: git@github.com:yourorg/service-b.git
+    path: ~/projects/service-b
+    
+  ai-service-1:
+    repo: git@github.com:yourorg/ai-service-1.git
+    path: ~/projects/ai-service-1
+    
+  ai-service-2:
+    repo: git@github.com:yourorg/ai-service-2.git
+    path: ~/projects/ai-service-2
+
+# Path expansion rules
+path_defaults:
+  base: ~/projects    # Default: ~/projects/{service-name}

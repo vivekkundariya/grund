@@ -1,0 +1,68 @@
+version: "1"
+
+service:
+  name: {{.ServiceName}}
+  type: {{.ServiceType}}                          # go | python | node
+  port: {{.Port}}
+  
+  # How to build/run
+  build:
+    dockerfile: Dockerfile          # Path relative to service root
+    context: .
+    
+  # Or run directly (for hot reload during development)
+  # run:
+  #   command: go run ./cmd/main.go
+  #   hot_reload: true
+    
+  # Health check
+  health:
+    endpoint: /health
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+# Service dependencies
+requires:
+  services: []
+    # - service-b
+    
+  infrastructure:
+    # postgres:
+    #   database: {{.ServiceName}}_db
+    #   migrations: ./migrations      # Optional: run migrations
+    #   seed: ./seeds/dev.sql         # Optional: seed data
+      
+    # redis: true                     # Simple flag, no special config
+    
+    # sqs:
+    #   queues:
+    #     - name: order-created-queue
+    #       dlq: true                 # Create dead-letter queue
+    #     - name: payment-queue
+        
+    # sns:
+    #   topics:
+    #     - name: order-events
+    #       subscriptions:
+    #         - queue: order-created-queue    # Auto-subscribe SQS to SNS
+            
+    # s3:
+    #   buckets:
+    #     - name: user-uploads
+    #       seed: ./fixtures/s3/      # Optional: pre-populate files
+
+# Environment variables
+# These will be injected into the container
+env:
+  APP_ENV: development
+  LOG_LEVEL: debug
+  
+# Environment variables with references (resolved by grund)
+env_refs:
+  # DATABASE_URL: "postgres://postgres:postgres@${postgres.host}:${postgres.port}/${self.postgres.database}"
+  # REDIS_URL: "redis://${redis.host}:${redis.port}"
+  # SERVICE_B_URL: "http://${service-b.host}:${service-b.port}"
+  # AWS_ENDPOINT: "http://${localstack.host}:${localstack.port}"
+  # ORDER_QUEUE_URL: "${sqs.order-created-queue.url}"
+  # S3_BUCKET: "${s3.user-uploads.name}"
