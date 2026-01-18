@@ -1,0 +1,18 @@
+# Test service registry
+version: "1"
+
+services:
+  service-a:
+    repo: git@github.com:testorg/service-a.git
+    path: test/fixtures/services/service-a
+    
+  service-b:
+    repo: git@github.com:testorg/service-b.git
+    path: test/fixtures/services/service-b
+    
+  service-c:
+    repo: git@github.com:testorg/service-c.git
+    path: test/fixtures/services/service-c
+
+path_defaults:
+  base: test/fixtures/services

@@ -3,8 +3,6 @@ package generator
 import (
 	"fmt"
 	"strings"
-
-	"github.com/vivekkundariya/grund/internal/config"
 )
 
 // ResolveEnvRefs resolves environment variable references
