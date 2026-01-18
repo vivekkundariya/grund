@@ -17,31 +17,42 @@ grund/
 ├── internal/
 │   ├── domain/
 │   │   ├── service/
-│   │   │   └── service_test.go          # Unit tests
+│   │   │   └── service_test.go              # Unit tests
 │   │   ├── dependency/
-│   │   │   └── graph_test.go            # Unit tests
+│   │   │   └── graph_test.go                # Unit tests
 │   │   └── infrastructure/
-│   │       └── infrastructure_test.go  # Unit tests
+│   │       └── infrastructure_test.go       # Unit tests
 │   ├── application/
 │   │   ├── commands/
-│   │   │   └── *_test.go               # Integration tests with mocks
+│   │   │   ├── up_command_test.go           # Integration tests
+│   │   │   ├── down_command_test.go
+│   │   │   └── restart_command_test.go
 │   │   └── queries/
-│   │       └── *_test.go               # Integration tests with mocks
+│   │       └── status_query_test.go         # Integration tests
 │   └── infrastructure/
-│       └── *_test.go                   # Integration tests
+│       ├── config/
+│       │   ├── service_repository_test.go   # Integration tests
+│       │   └── registry_repository_test.go
+│       └── docker/
+│           └── orchestrator_test.go
 ├── test/
-│   ├── fixtures/                       # Test fixtures
+│   ├── fixtures/                            # Test fixtures
 │   │   ├── services/
 │   │   │   ├── service-a/
-│   │   │   │   └── grund.yaml
-│   │   │   └── service-b/
-│   │   │       └── grund.yaml
+│   │   │   │   ├── grund.yaml
+│   │   │   │   └── Dockerfile
+│   │   │   ├── service-b/
+│   │   │   │   ├── grund.yaml
+│   │   │   │   └── Dockerfile
+│   │   │   └── service-c/
+│   │   │       └── grund.yaml               # For cycle tests
 │   │   └── services.yaml
-│   ├── integration/                    # E2E tests
+│   ├── integration/                         # E2E tests
 │   │   └── cli_test.go
-│   └── helpers/                        # Test helpers
-│       └── test_helpers.go
-└── mocks/                              # Generated mocks
+│   ├── helpers/                             # Test helpers
+│   │   └── helpers.go
+│   └── mocks/                               # Mock implementations
+│       └── mocks.go
 ```
 
 ## Running Tests
