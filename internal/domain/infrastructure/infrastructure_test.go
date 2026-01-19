@@ -310,3 +310,102 @@ func TestInfrastructureType_Constants(t *testing.T) {
 		t.Errorf("InfrastructureTypeLocalStack = %q, want 'localstack'", InfrastructureTypeLocalStack)
 	}
 }
+
+func TestAggregate_SQSQueues_Deduplication(t *testing.T) {
+	// Two services requesting the same queue should result in only one queue
+	req1 := InfrastructureRequirements{
+		SQS: &SQSConfig{
+			Queues: []QueueConfig{
+				{Name: "shared-queue", DLQ: true},
+				{Name: "service-a-queue"},
+			},
+		},
+	}
+	req2 := InfrastructureRequirements{
+		SQS: &SQSConfig{
+			Queues: []QueueConfig{
+				{Name: "shared-queue", DLQ: false}, // Same queue, different config
+				{Name: "service-b-queue"},
+			},
+		},
+	}
+
+	result := Aggregate(req1, req2)
+
+	if result.SQS == nil {
+		t.Fatal("Aggregate() SQS is nil")
+	}
+	
+	// Should have 3 queues: shared-queue, service-a-queue, service-b-queue
+	// shared-queue should NOT be duplicated
+	if len(result.SQS.Queues) != 3 {
+		t.Errorf("Aggregate() SQS.Queues has %d queues, want 3 (deduplicated)", len(result.SQS.Queues))
+	}
+
+	// Count occurrences of shared-queue
+	sharedCount := 0
+	for _, q := range result.SQS.Queues {
+		if q.Name == "shared-queue" {
+			sharedCount++
+		}
+	}
+	if sharedCount != 1 {
+		t.Errorf("shared-queue appears %d times, want 1 (deduplicated)", sharedCount)
+	}
+}
+
+func TestAggregate_SNSTopics_Deduplication(t *testing.T) {
+	req1 := InfrastructureRequirements{
+		SNS: &SNSConfig{
+			Topics: []TopicConfig{
+				{Name: "shared-events"},
+				{Name: "service-a-events"},
+			},
+		},
+	}
+	req2 := InfrastructureRequirements{
+		SNS: &SNSConfig{
+			Topics: []TopicConfig{
+				{Name: "shared-events"}, // Duplicate
+				{Name: "service-b-events"},
+			},
+		},
+	}
+
+	result := Aggregate(req1, req2)
+
+	if result.SNS == nil {
+		t.Fatal("Aggregate() SNS is nil")
+	}
+	if len(result.SNS.Topics) != 3 {
+		t.Errorf("Aggregate() SNS.Topics has %d topics, want 3 (deduplicated)", len(result.SNS.Topics))
+	}
+}
+
+func TestAggregate_S3Buckets_Deduplication(t *testing.T) {
+	req1 := InfrastructureRequirements{
+		S3: &S3Config{
+			Buckets: []BucketConfig{
+				{Name: "shared-bucket"},
+				{Name: "service-a-bucket"},
+			},
+		},
+	}
+	req2 := InfrastructureRequirements{
+		S3: &S3Config{
+			Buckets: []BucketConfig{
+				{Name: "shared-bucket"}, // Duplicate
+				{Name: "service-b-bucket"},
+			},
+		},
+	}
+
+	result := Aggregate(req1, req2)
+
+	if result.S3 == nil {
+		t.Fatal("Aggregate() S3 is nil")
+	}
+	if len(result.S3.Buckets) != 3 {
+		t.Errorf("Aggregate() S3.Buckets has %d buckets, want 3 (deduplicated)", len(result.S3.Buckets))
+	}
+}
