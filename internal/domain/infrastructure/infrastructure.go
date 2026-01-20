@@ -93,10 +93,18 @@ type BucketConfig struct {
 }
 
 // Aggregate aggregates infrastructure requirements from multiple services
+// - Single-instance resources (Postgres, MongoDB, Redis): Creates one shared instance
+// - Multi-instance resources (SQS, SNS, S3): Deduplicates by name
 func Aggregate(requirements ...InfrastructureRequirements) InfrastructureRequirements {
 	aggregated := InfrastructureRequirements{}
 	
+	// Track seen resources to avoid duplicates
+	seenQueues := make(map[string]bool)
+	seenTopics := make(map[string]bool)
+	seenBuckets := make(map[string]bool)
+	
 	for _, req := range requirements {
+		// Single-instance: first config wins, all services share one container
 		if req.Postgres != nil && aggregated.Postgres == nil {
 			aggregated.Postgres = req.Postgres
 		}
@@ -107,28 +115,43 @@ func Aggregate(requirements ...InfrastructureRequirements) InfrastructureRequire
 			aggregated.Redis = req.Redis
 		}
 		
-		// Aggregate SQS queues
+		// Aggregate SQS queues (deduplicate by name)
 		if req.SQS != nil {
 			if aggregated.SQS == nil {
 				aggregated.SQS = &SQSConfig{Queues: []QueueConfig{}}
 			}
-			aggregated.SQS.Queues = append(aggregated.SQS.Queues, req.SQS.Queues...)
+			for _, queue := range req.SQS.Queues {
+				if !seenQueues[queue.Name] {
+					seenQueues[queue.Name] = true
+					aggregated.SQS.Queues = append(aggregated.SQS.Queues, queue)
+				}
+			}
 		}
 		
-		// Aggregate SNS topics
+		// Aggregate SNS topics (deduplicate by name)
 		if req.SNS != nil {
 			if aggregated.SNS == nil {
 				aggregated.SNS = &SNSConfig{Topics: []TopicConfig{}}
 			}
-			aggregated.SNS.Topics = append(aggregated.SNS.Topics, req.SNS.Topics...)
+			for _, topic := range req.SNS.Topics {
+				if !seenTopics[topic.Name] {
+					seenTopics[topic.Name] = true
+					aggregated.SNS.Topics = append(aggregated.SNS.Topics, topic)
+				}
+			}
 		}
 		
-		// Aggregate S3 buckets
+		// Aggregate S3 buckets (deduplicate by name)
 		if req.S3 != nil {
 			if aggregated.S3 == nil {
 				aggregated.S3 = &S3Config{Buckets: []BucketConfig{}}
 			}
-			aggregated.S3.Buckets = append(aggregated.S3.Buckets, req.S3.Buckets...)
+			for _, bucket := range req.S3.Buckets {
+				if !seenBuckets[bucket.Name] {
+					seenBuckets[bucket.Name] = true
+					aggregated.S3.Buckets = append(aggregated.S3.Buckets, bucket)
+				}
+			}
 		}
 	}
 	
