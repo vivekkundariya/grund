@@ -1,0 +1,31 @@
+# Service C - used for circular dependency testing
+# This service depends on service-a, which depends on service-b
+# Creating a cycle: service-c -> service-a -> service-b -> (no cycle normally)
+# For cycle test: service-c -> service-a, and service-a config would be modified
+
+version: "1"
+
+service:
+  name: service-c
+  type: go
+  port: 8082
+  
+  build:
+    dockerfile: Dockerfile
+    context: .
+    
+  health:
+    endpoint: /health
+    interval: 5s
+    timeout: 3s
+    retries: 10
+
+requires:
+  services:
+    - service-a
+    
+  infrastructure:
+    redis: true
+
+env:
+  APP_ENV: development
