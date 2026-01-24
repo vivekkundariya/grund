@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/vivekkundariya/grund/internal/application/ports"
 	"github.com/vivekkundariya/grund/internal/domain/service"
@@ -23,6 +24,54 @@ func NewDockerOrchestrator(composeFile, workingDir string) ports.ContainerOrches
 		composeFile: composeFile,
 		workingDir:  workingDir,
 	}
+}
+
+// infrastructureServices are the services that should be started first
+var infrastructureServices = []string{"postgres", "mongodb", "redis", "localstack"}
+
+// StartInfrastructure starts infrastructure containers and waits for them to be healthy
+func (d *DockerOrchestrator) StartInfrastructure(ctx context.Context) error {
+	// First, get the list of services defined in the compose file
+	configCmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.composeFile, "config", "--services")
+	configCmd.Dir = d.workingDir
+	configOutput, err := configCmd.Output()
+	if err != nil {
+		return fmt.Errorf("failed to read compose config: %w", err)
+	}
+
+	// Parse available services
+	availableServices := make(map[string]bool)
+	for _, line := range strings.Split(string(configOutput), "\n") {
+		svc := strings.TrimSpace(line)
+		if svc != "" {
+			availableServices[svc] = true
+		}
+	}
+
+	// Filter infrastructure services to only those in compose file
+	var servicesToStart []string
+	for _, svc := range infrastructureServices {
+		if availableServices[svc] {
+			servicesToStart = append(servicesToStart, svc)
+		}
+	}
+
+	if len(servicesToStart) == 0 {
+		return nil // No infrastructure services to start
+	}
+
+	// Start infrastructure services with --wait to ensure they're healthy
+	args := []string{"compose", "-f", d.composeFile, "up", "-d", "--wait"}
+	args = append(args, servicesToStart...)
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Dir = d.workingDir
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to start infrastructure: %w\n%s", err, output)
+	}
+
+	return nil
 }
 
 // StartServices starts services using docker-compose

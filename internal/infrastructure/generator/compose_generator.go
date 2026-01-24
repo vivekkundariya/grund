@@ -282,10 +282,10 @@ func (g *ComposeGeneratorImpl) addInfrastructureServices(compose *ComposeFile, i
 			ContainerName: "grund-localstack",
 			Ports:         []string{"4566:4566"},
 			Environment: map[string]string{
-				"SERVICES":              strings.Join(services, ","),
-				"DEBUG":                 "0",
-				"AWS_DEFAULT_REGION":    "us-east-1",
-				"DOCKER_HOST":           "unix:///var/run/docker.sock",
+				"SERVICES":           strings.Join(services, ","),
+				"DEBUG":              "0",
+				"AWS_DEFAULT_REGION": "us-east-1",
+				"DOCKER_HOST":        "unix:///var/run/docker.sock",
 			},
 			Volumes: []string{
 				"/var/run/docker.sock:/var/run/docker.sock",
@@ -293,7 +293,7 @@ func (g *ComposeGeneratorImpl) addInfrastructureServices(compose *ComposeFile, i
 			},
 			Networks: []string{"grund-network"},
 			Healthcheck: &ComposeHealth{
-				Test:        []string{"CMD-SHELL", "curl -s http://localhost:4566/_localstack/health | grep -q '\"sqs\": \"available\"' || exit 1"},
+				Test:        []string{"CMD-SHELL", "curl -s http://localhost:4566/_localstack/health | grep -E '\"sqs\":\\s*\"(running|available)\"' || exit 1"},
 				Interval:    "10s",
 				Timeout:     "5s",
 				Retries:     10,
@@ -358,7 +358,7 @@ func (g *ComposeGeneratorImpl) addApplicationServices(compose *ComposeFile, serv
 		// Set build or image
 		if svc.Build != nil {
 			composeService.Build = &ComposeBuild{
-				Context:    fmt.Sprintf("./services/%s", svc.Name),
+				Context:    svc.Build.Context,
 				Dockerfile: svc.Build.Dockerfile,
 			}
 		}

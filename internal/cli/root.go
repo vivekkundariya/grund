@@ -41,9 +41,14 @@ Examples:
 		if cmd.Name() == "help" || cmd.Name() == "version" {
 			return nil
 		}
-		
+
 		// Also skip for completion commands
 		if cmd.Name() == "completion" {
+			return nil
+		}
+
+		// Skip for init command (doesn't need existing services.yaml)
+		if cmd.Name() == "init" {
 			return nil
 		}
 		

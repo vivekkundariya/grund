@@ -14,6 +14,10 @@ type mockRestartOrchestrator struct {
 	restartCalls []service.ServiceName
 }
 
+func (m *mockRestartOrchestrator) StartInfrastructure(ctx context.Context) error {
+	return nil
+}
+
 func (m *mockRestartOrchestrator) StartServices(ctx context.Context, services []service.ServiceName) error {
 	return nil
 }

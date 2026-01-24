@@ -82,9 +82,13 @@ func NewContainerWithConfig(orchestrationRoot, servicesPath string, configResolv
 
 	// Initialize provisioners
 	postgresProvisioner := docker.NewPostgresProvisioner()
+	mongodbProvisioner := docker.NewMongoDBProvisioner()
+	redisProvisioner := docker.NewRedisProvisioner()
 	localstackProvisioner := aws.NewLocalStackProvisioner(localstackEndpoint)
 	provisioner := docker.NewCompositeInfrastructureProvisioner(
 		postgresProvisioner,
+		mongodbProvisioner,
+		redisProvisioner,
 		localstackProvisioner,
 	)
 

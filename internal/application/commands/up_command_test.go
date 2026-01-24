@@ -58,6 +58,10 @@ type mockOrchestrator struct {
 	startCalls [][]service.ServiceName
 }
 
+func (m *mockOrchestrator) StartInfrastructure(ctx context.Context) error {
+	return nil
+}
+
 func (m *mockOrchestrator) StartServices(ctx context.Context, services []service.ServiceName) error {
 	m.startCalls = append(m.startCalls, services)
 	return m.startErr

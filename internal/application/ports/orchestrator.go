@@ -10,6 +10,7 @@ import (
 // ContainerOrchestrator defines the interface for container orchestration
 // This abstracts away Docker Compose implementation details
 type ContainerOrchestrator interface {
+	StartInfrastructure(ctx context.Context) error
 	StartServices(ctx context.Context, services []service.ServiceName) error
 	StopServices(ctx context.Context) error
 	RestartService(ctx context.Context, name service.ServiceName) error

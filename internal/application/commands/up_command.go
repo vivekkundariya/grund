@@ -89,17 +89,23 @@ func (h *UpCommandHandler) Handle(ctx context.Context, cmd UpCommand) error {
 	// 5. Aggregate infrastructure requirements
 	infraReqs := h.aggregateInfrastructure(services)
 
-	// 6. Provision infrastructure
-	if err := h.provisionInfrastructure(ctx, infraReqs); err != nil {
-		return fmt.Errorf("failed to provision infrastructure: %w", err)
-	}
-
-	// 7. Generate docker-compose
+	// 6. Generate docker-compose
 	if err := h.generateCompose(services, infraReqs); err != nil {
 		return fmt.Errorf("failed to generate compose file: %w", err)
 	}
 
-	// 8. Start services in order
+	// 7. Start infrastructure containers first (postgres, redis, localstack, etc.)
+	if err := h.orchestrator.StartInfrastructure(ctx); err != nil {
+		return fmt.Errorf("failed to start infrastructure: %w", err)
+	}
+
+	// 8. Provision infrastructure (create databases, SQS queues, etc.)
+	// This runs AFTER containers are up
+	if err := h.provisionInfrastructure(ctx, infraReqs); err != nil {
+		return fmt.Errorf("failed to provision infrastructure: %w", err)
+	}
+
+	// 9. Start services in order
 	if !cmd.InfraOnly {
 		if err := h.startServices(ctx, startupOrder); err != nil {
 			return fmt.Errorf("failed to start services: %w", err)

@@ -13,6 +13,10 @@ type mockStatusOrchestrator struct {
 	statusFunc func(name service.ServiceName) (ports.ServiceStatus, error)
 }
 
+func (m *mockStatusOrchestrator) StartInfrastructure(ctx context.Context) error {
+	return nil
+}
+
 func (m *mockStatusOrchestrator) StartServices(ctx context.Context, services []service.ServiceName) error {
 	return nil
 }
