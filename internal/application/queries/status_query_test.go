@@ -13,6 +13,10 @@ type mockStatusOrchestrator struct {
 	statusFunc func(name service.ServiceName) (ports.ServiceStatus, error)
 }
 
+func (m *mockStatusOrchestrator) StartInfrastructure(ctx context.Context) error {
+	return nil
+}
+
 func (m *mockStatusOrchestrator) StartServices(ctx context.Context, services []service.ServiceName) error {
 	return nil
 }
@@ -38,6 +42,13 @@ func (m *mockStatusOrchestrator) GetServiceStatus(ctx context.Context, name serv
 
 func (m *mockStatusOrchestrator) GetLogs(ctx context.Context, name service.ServiceName, follow bool, tail int) (ports.LogStream, error) {
 	return nil, nil
+}
+
+func (m *mockStatusOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]ports.ServiceStatus, error) {
+	return []ports.ServiceStatus{
+		{Name: "service-a", Status: "running", Health: "healthy"},
+		{Name: "postgres", Status: "running", Health: "healthy"},
+	}, nil
 }
 
 func TestStatusQueryHandler_Handle_SingleService(t *testing.T) {

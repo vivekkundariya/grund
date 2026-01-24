@@ -27,12 +27,12 @@ func NewServiceRepository(registryRepo ports.ServiceRegistryRepository) ports.Se
 
 // FindByName finds a service by name
 func (r *ServiceRepositoryImpl) FindByName(name service.ServiceName) (*service.Service, error) {
-	path, err := r.registryRepo.GetServicePath(name)
+	servicePath, err := r.registryRepo.GetServicePath(name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get service path: %w", err)
 	}
 
-	configPath := filepath.Join(path, "grund.yaml")
+	configPath := filepath.Join(servicePath, "grund.yaml")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
@@ -43,7 +43,7 @@ func (r *ServiceRepositoryImpl) FindByName(name service.ServiceName) (*service.S
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	return r.toDomainService(configDTO, name)
+	return r.toDomainService(configDTO, name, servicePath)
 }
 
 // FindAll finds all services
@@ -178,7 +178,7 @@ type BucketConfigDTO struct {
 }
 
 // toDomainService converts DTO to domain model
-func (r *ServiceRepositoryImpl) toDomainService(dto ServiceConfigDTO, name service.ServiceName) (*service.Service, error) {
+func (r *ServiceRepositoryImpl) toDomainService(dto ServiceConfigDTO, name service.ServiceName, servicePath string) (*service.Service, error) {
 	port, err := service.NewPort(dto.Service.Port)
 	if err != nil {
 		return nil, err
@@ -186,9 +186,15 @@ func (r *ServiceRepositoryImpl) toDomainService(dto ServiceConfigDTO, name servi
 
 	var build *service.BuildConfig
 	if dto.Service.Build != nil {
+		// Resolve build context: if it's "." or relative, use the service path
+		buildContext := servicePath
+		if dto.Service.Build.Context != "" && dto.Service.Build.Context != "." {
+			// If context is a subdirectory, join it with service path
+			buildContext = filepath.Join(servicePath, dto.Service.Build.Context)
+		}
 		build = &service.BuildConfig{
 			Dockerfile: dto.Service.Build.Dockerfile,
-			Context:    dto.Service.Build.Context,
+			Context:    buildContext,
 		}
 	}
 

@@ -14,6 +14,10 @@ type mockDownOrchestrator struct {
 	stopCalls int
 }
 
+func (m *mockDownOrchestrator) StartInfrastructure(ctx context.Context) error {
+	return nil
+}
+
 func (m *mockDownOrchestrator) StartServices(ctx context.Context, services []service.ServiceName) error {
 	return nil
 }
@@ -32,6 +36,10 @@ func (m *mockDownOrchestrator) GetServiceStatus(ctx context.Context, name servic
 }
 
 func (m *mockDownOrchestrator) GetLogs(ctx context.Context, name service.ServiceName, follow bool, tail int) (ports.LogStream, error) {
+	return nil, nil
+}
+
+func (m *mockDownOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]ports.ServiceStatus, error) {
 	return nil, nil
 }
 

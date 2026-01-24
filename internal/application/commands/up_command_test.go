@@ -58,6 +58,10 @@ type mockOrchestrator struct {
 	startCalls [][]service.ServiceName
 }
 
+func (m *mockOrchestrator) StartInfrastructure(ctx context.Context) error {
+	return nil
+}
+
 func (m *mockOrchestrator) StartServices(ctx context.Context, services []service.ServiceName) error {
 	m.startCalls = append(m.startCalls, services)
 	return m.startErr
@@ -76,6 +80,10 @@ func (m *mockOrchestrator) GetServiceStatus(ctx context.Context, name service.Se
 }
 
 func (m *mockOrchestrator) GetLogs(ctx context.Context, name service.ServiceName, follow bool, tail int) (ports.LogStream, error) {
+	return nil, nil
+}
+
+func (m *mockOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]ports.ServiceStatus, error) {
 	return nil, nil
 }
 

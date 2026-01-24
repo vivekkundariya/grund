@@ -2,11 +2,11 @@ package cli
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/vivekkundariya/grund/internal/application/wiring"
 	"github.com/vivekkundariya/grund/internal/config"
+	"github.com/vivekkundariya/grund/internal/ui"
 )
 
 var (
@@ -37,34 +37,40 @@ Examples:
   grund --config=/path/to/services.yaml up myservice`,
 	Version: "1.0.0",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		// Set verbose mode on logger
+		ui.SetVerbose(verbose)
+
 		// Skip initialization for help and version commands
 		if cmd.Name() == "help" || cmd.Name() == "version" {
 			return nil
 		}
-		
+
 		// Also skip for completion commands
 		if cmd.Name() == "completion" {
 			return nil
 		}
-		
+
+		// Skip for init command (doesn't need existing services.yaml)
+		if cmd.Name() == "init" {
+			return nil
+		}
+
 		// Initialize config resolver
 		var err error
 		configResolver, err = config.NewConfigResolver(configFile)
 		if err != nil {
 			return fmt.Errorf("failed to initialize config: %w", err)
 		}
-		
+
 		// Resolve services file and orchestration root
 		servicesPath, orchestrationRoot, err := configResolver.ResolveServicesFile()
 		if err != nil {
 			return err
 		}
-		
-		if verbose {
-			fmt.Fprintf(os.Stderr, "Using config: %s\n", servicesPath)
-			fmt.Fprintf(os.Stderr, "Orchestration root: %s\n", orchestrationRoot)
-		}
-		
+
+		ui.Debug("Using config: %s", servicesPath)
+		ui.Debug("Orchestration root: %s", orchestrationRoot)
+
 		// Initialize dependency injection container
 		container, err = wiring.NewContainerWithConfig(orchestrationRoot, servicesPath, configResolver)
 		if err != nil {

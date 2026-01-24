@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/service/sqs/types"
 	"github.com/vivekkundariya/grund/internal/application/ports"
 	"github.com/vivekkundariya/grund/internal/domain/infrastructure"
+	"github.com/vivekkundariya/grund/internal/ui"
 )
 
 // LocalStackProvisioner implements InfrastructureProvisioner for LocalStack
@@ -44,6 +45,8 @@ func (p *LocalStackProvisioner) ProvisionRedis(ctx context.Context, config *infr
 
 // ProvisionLocalStack provisions AWS resources in LocalStack
 func (p *LocalStackProvisioner) ProvisionLocalStack(ctx context.Context, req infrastructure.InfrastructureRequirements) error {
+	ui.Debug("Connecting to LocalStack at %s", p.endpoint)
+
 	cfg, err := createLocalStackConfig(p.endpoint)
 	if err != nil {
 		return fmt.Errorf("failed to create AWS config: %w", err)
@@ -60,6 +63,7 @@ func (p *LocalStackProvisioner) ProvisionLocalStack(ctx context.Context, req inf
 		for _, queue := range req.SQS.Queues {
 			if queue.DLQ {
 				dlqName := queue.Name + "-dlq"
+				ui.SubStep("Creating SQS DLQ: %s", dlqName)
 				_, err := sqsClient.CreateQueue(ctx, &sqs.CreateQueueInput{
 					QueueName: aws.String(dlqName),
 				})
@@ -68,6 +72,7 @@ func (p *LocalStackProvisioner) ProvisionLocalStack(ctx context.Context, req inf
 				}
 			}
 
+			ui.SubStep("Creating SQS queue: %s", queue.Name)
 			result, err := sqsClient.CreateQueue(ctx, &sqs.CreateQueueInput{
 				QueueName: aws.String(queue.Name),
 			})
@@ -89,6 +94,7 @@ func (p *LocalStackProvisioner) ProvisionLocalStack(ctx context.Context, req inf
 	// Create SNS Topics
 	if req.SNS != nil {
 		for _, topic := range req.SNS.Topics {
+			ui.SubStep("Creating SNS topic: %s", topic.Name)
 			result, err := snsClient.CreateTopic(ctx, &sns.CreateTopicInput{
 				Name: aws.String(topic.Name),
 			})
@@ -103,6 +109,7 @@ func (p *LocalStackProvisioner) ProvisionLocalStack(ctx context.Context, req inf
 					return fmt.Errorf("queue %s not found for subscription", sub.Queue)
 				}
 
+				ui.Debug("Subscribing queue %s to topic %s", sub.Queue, topic.Name)
 				_, err := snsClient.Subscribe(ctx, &sns.SubscribeInput{
 					TopicArn: result.TopicArn,
 					Protocol: aws.String("sqs"),
@@ -118,14 +125,13 @@ func (p *LocalStackProvisioner) ProvisionLocalStack(ctx context.Context, req inf
 	// Create S3 Buckets
 	if req.S3 != nil {
 		for _, bucket := range req.S3.Buckets {
+			ui.SubStep("Creating S3 bucket: %s", bucket.Name)
 			_, err := s3Client.CreateBucket(ctx, &s3.CreateBucketInput{
 				Bucket: aws.String(bucket.Name),
 			})
 			if err != nil {
 				return fmt.Errorf("failed to create bucket %s: %w", bucket.Name, err)
 			}
-
-			// TODO: Upload seed files if specified
 		}
 	}
 

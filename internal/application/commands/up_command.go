@@ -3,11 +3,13 @@ package commands
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/vivekkundariya/grund/internal/application/ports"
 	"github.com/vivekkundariya/grund/internal/domain/dependency"
 	"github.com/vivekkundariya/grund/internal/domain/infrastructure"
 	"github.com/vivekkundariya/grund/internal/domain/service"
+	"github.com/vivekkundariya/grund/internal/ui"
 )
 
 // UpCommand represents the command to start services
@@ -51,13 +53,18 @@ func NewUpCommandHandler(
 
 // Handle executes the up command
 func (h *UpCommandHandler) Handle(ctx context.Context, cmd UpCommand) error {
+	ui.Infof("Starting services: %s", strings.Join(cmd.ServiceNames, ", "))
+
 	// 1. Load services
+	ui.Step("Loading service configurations...")
 	services, err := h.loadServices(cmd.ServiceNames)
 	if err != nil {
 		return fmt.Errorf("failed to load services: %w", err)
 	}
+	ui.Debug("Loaded %d service(s)", len(services))
 
 	// 2. Build dependency graph
+	ui.Step("Resolving dependencies...")
 	graph := dependency.NewGraph()
 	for _, svc := range services {
 		graph.AddService(svc)
@@ -85,25 +92,48 @@ func (h *UpCommandHandler) Handle(ctx context.Context, cmd UpCommand) error {
 	if err != nil {
 		return fmt.Errorf("failed to determine startup order: %w", err)
 	}
+	ui.Debug("Startup order: %v", startupOrder)
 
 	// 5. Aggregate infrastructure requirements
 	infraReqs := h.aggregateInfrastructure(services)
+	ui.Debug("Infrastructure requirements: postgres=%v, mongodb=%v, redis=%v, sqs=%v",
+		infraReqs.Postgres != nil, infraReqs.MongoDB != nil, infraReqs.Redis != nil, infraReqs.SQS != nil)
 
-	// 6. Provision infrastructure
-	if err := h.provisionInfrastructure(ctx, infraReqs); err != nil {
-		return fmt.Errorf("failed to provision infrastructure: %w", err)
-	}
-
-	// 7. Generate docker-compose
+	// 6. Generate docker-compose
+	ui.Step("Generating docker-compose configuration...")
 	if err := h.generateCompose(services, infraReqs); err != nil {
 		return fmt.Errorf("failed to generate compose file: %w", err)
 	}
+	ui.Successf("Docker compose file generated")
 
-	// 8. Start services in order
+	// 7. Start infrastructure containers first (postgres, redis, localstack, etc.)
+	ui.Step("Starting infrastructure containers...")
+	if err := h.orchestrator.StartInfrastructure(ctx); err != nil {
+		return fmt.Errorf("failed to start infrastructure: %w", err)
+	}
+	ui.Successf("Infrastructure containers started")
+
+	// 8. Provision infrastructure (create databases, SQS queues, etc.)
+	// This runs AFTER containers are up
+	if infraReqs.SQS != nil || infraReqs.SNS != nil || infraReqs.S3 != nil {
+		ui.Step("Provisioning AWS resources in LocalStack...")
+	}
+	if err := h.provisionInfrastructure(ctx, infraReqs); err != nil {
+		return fmt.Errorf("failed to provision infrastructure: %w", err)
+	}
+	if infraReqs.SQS != nil || infraReqs.SNS != nil || infraReqs.S3 != nil {
+		ui.Successf("AWS resources provisioned")
+	}
+
+	// 9. Start services in order
 	if !cmd.InfraOnly {
+		ui.Step("Starting application services...")
 		if err := h.startServices(ctx, startupOrder); err != nil {
 			return fmt.Errorf("failed to start services: %w", err)
 		}
+		ui.Successf("All services started successfully")
+	} else {
+		ui.Infof("Infrastructure only mode - skipping service startup")
 	}
 
 	return nil

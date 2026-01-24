@@ -35,7 +35,6 @@ func (h *StatusQueryHandler) Handle(ctx context.Context, query StatusQuery) ([]p
 		return []ports.ServiceStatus{status}, nil
 	}
 
-	// TODO: Get all services from repository and query status for each
-	// For now, return empty
-	return []ports.ServiceStatus{}, nil
+	// Get all services status
+	return h.orchestrator.GetAllServiceStatuses(ctx)
 }
