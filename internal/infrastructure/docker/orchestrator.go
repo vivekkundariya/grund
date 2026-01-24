@@ -138,13 +138,71 @@ func (d *DockerOrchestrator) RestartService(ctx context.Context, name service.Se
 
 // GetServiceStatus gets the status of a service
 func (d *DockerOrchestrator) GetServiceStatus(ctx context.Context, name service.ServiceName) (ports.ServiceStatus, error) {
-	// TODO: Implement actual status checking using docker ps
-	return ports.ServiceStatus{
-		Name:     name.String(),
-		Status:   "unknown",
-		Endpoint: "",
-		Health:   "unknown",
-	}, nil
+	// Use docker compose ps to get status
+	args := []string{"compose", "-f", d.composeFile, "ps", "--format", "json", name.String()}
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	cmd.Dir = d.workingDir
+	output, err := cmd.Output()
+	if err != nil {
+		return ports.ServiceStatus{
+			Name:   name.String(),
+			Status: "not running",
+			Health: "unknown",
+		}, nil
+	}
+
+	// Parse JSON output - docker compose ps --format json returns one JSON object per line
+	status := ports.ServiceStatus{
+		Name:   name.String(),
+		Status: "unknown",
+		Health: "unknown",
+	}
+
+	outputStr := strings.TrimSpace(string(output))
+	if outputStr == "" {
+		status.Status = "not running"
+		return status, nil
+	}
+
+	// Simple parsing - look for State and Health fields
+	if strings.Contains(outputStr, `"State":"running"`) || strings.Contains(outputStr, `"State": "running"`) {
+		status.Status = "running"
+	} else if strings.Contains(outputStr, `"State":"exited"`) || strings.Contains(outputStr, `"State": "exited"`) {
+		status.Status = "exited"
+	}
+
+	if strings.Contains(outputStr, `"Health":"healthy"`) || strings.Contains(outputStr, `"Health": "healthy"`) {
+		status.Health = "healthy"
+	} else if strings.Contains(outputStr, `"Health":"unhealthy"`) || strings.Contains(outputStr, `"Health": "unhealthy"`) {
+		status.Health = "unhealthy"
+	} else if strings.Contains(outputStr, `"Health":""`) || strings.Contains(outputStr, `"Health": ""`) {
+		status.Health = "-"
+	}
+
+	return status, nil
+}
+
+// GetAllServiceStatuses gets status of all services in the compose file
+func (d *DockerOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]ports.ServiceStatus, error) {
+	// Get all services from compose file
+	configCmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.composeFile, "config", "--services")
+	configCmd.Dir = d.workingDir
+	configOutput, err := configCmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read compose config: %w", err)
+	}
+
+	var statuses []ports.ServiceStatus
+	for _, line := range strings.Split(string(configOutput), "\n") {
+		svcName := strings.TrimSpace(line)
+		if svcName == "" {
+			continue
+		}
+		status, _ := d.GetServiceStatus(ctx, service.ServiceName(svcName))
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
 }
 
 // GetLogs gets logs for a service

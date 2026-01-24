@@ -39,6 +39,10 @@ func (m *mockDownOrchestrator) GetLogs(ctx context.Context, name service.Service
 	return nil, nil
 }
 
+func (m *mockDownOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]ports.ServiceStatus, error) {
+	return nil, nil
+}
+
 func TestDownCommandHandler_Handle_Success(t *testing.T) {
 	orchestrator := &mockDownOrchestrator{}
 	handler := NewDownCommandHandler(orchestrator)

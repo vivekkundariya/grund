@@ -44,6 +44,13 @@ func (m *mockStatusOrchestrator) GetLogs(ctx context.Context, name service.Servi
 	return nil, nil
 }
 
+func (m *mockStatusOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]ports.ServiceStatus, error) {
+	return []ports.ServiceStatus{
+		{Name: "service-a", Status: "running", Health: "healthy"},
+		{Name: "postgres", Status: "running", Health: "healthy"},
+	}, nil
+}
+
 func TestStatusQueryHandler_Handle_SingleService(t *testing.T) {
 	orchestrator := &mockStatusOrchestrator{
 		statusFunc: func(name service.ServiceName) (ports.ServiceStatus, error) {

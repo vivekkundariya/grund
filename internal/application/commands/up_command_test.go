@@ -83,6 +83,10 @@ func (m *mockOrchestrator) GetLogs(ctx context.Context, name service.ServiceName
 	return nil, nil
 }
 
+func (m *mockOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]ports.ServiceStatus, error) {
+	return nil, nil
+}
+
 type mockProvisioner struct {
 	provisionErr      error
 	postgresCalls     []*infrastructure.PostgresConfig

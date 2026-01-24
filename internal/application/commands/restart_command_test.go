@@ -39,6 +39,10 @@ func (m *mockRestartOrchestrator) GetLogs(ctx context.Context, name service.Serv
 	return nil, nil
 }
 
+func (m *mockRestartOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]ports.ServiceStatus, error) {
+	return nil, nil
+}
+
 func TestRestartCommandHandler_Handle_SingleService(t *testing.T) {
 	orchestrator := &mockRestartOrchestrator{}
 	handler := NewRestartCommandHandler(orchestrator)

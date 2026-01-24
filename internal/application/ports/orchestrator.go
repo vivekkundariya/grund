@@ -15,6 +15,7 @@ type ContainerOrchestrator interface {
 	StopServices(ctx context.Context) error
 	RestartService(ctx context.Context, name service.ServiceName) error
 	GetServiceStatus(ctx context.Context, name service.ServiceName) (ServiceStatus, error)
+	GetAllServiceStatuses(ctx context.Context) ([]ServiceStatus, error)
 	GetLogs(ctx context.Context, name service.ServiceName, follow bool, tail int) (LogStream, error)
 }
 
