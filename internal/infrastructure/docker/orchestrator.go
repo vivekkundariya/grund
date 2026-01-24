@@ -9,6 +9,7 @@ import (
 
 	"github.com/vivekkundariya/grund/internal/application/ports"
 	"github.com/vivekkundariya/grund/internal/domain/service"
+	"github.com/vivekkundariya/grund/internal/ui"
 )
 
 // DockerOrchestrator implements ContainerOrchestrator using Docker Compose
@@ -31,6 +32,8 @@ var infrastructureServices = []string{"postgres", "mongodb", "redis", "localstac
 
 // StartInfrastructure starts infrastructure containers and waits for them to be healthy
 func (d *DockerOrchestrator) StartInfrastructure(ctx context.Context) error {
+	ui.Debug("Reading compose file: %s", d.composeFile)
+
 	// First, get the list of services defined in the compose file
 	configCmd := exec.CommandContext(ctx, "docker", "compose", "-f", d.composeFile, "config", "--services")
 	configCmd.Dir = d.workingDir
@@ -47,6 +50,7 @@ func (d *DockerOrchestrator) StartInfrastructure(ctx context.Context) error {
 			availableServices[svc] = true
 		}
 	}
+	ui.Debug("Available services in compose: %v", availableServices)
 
 	// Filter infrastructure services to only those in compose file
 	var servicesToStart []string
@@ -57,35 +61,48 @@ func (d *DockerOrchestrator) StartInfrastructure(ctx context.Context) error {
 	}
 
 	if len(servicesToStart) == 0 {
-		return nil // No infrastructure services to start
+		ui.Debug("No infrastructure services to start")
+		return nil
 	}
+
+	ui.SubStep("Starting: %s", strings.Join(servicesToStart, ", "))
 
 	// Start infrastructure services with --wait to ensure they're healthy
 	args := []string{"compose", "-f", d.composeFile, "up", "-d", "--wait"}
 	args = append(args, servicesToStart...)
 
+	ui.Debug("Running: docker %s", strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = d.workingDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to start infrastructure: %w\n%s", err, output)
+		ui.Errorf("Docker compose output:\n%s", string(output))
+		return fmt.Errorf("failed to start infrastructure: %w", err)
 	}
 
+	ui.Debug("Infrastructure started successfully")
 	return nil
 }
 
 // StartServices starts services using docker-compose
 func (d *DockerOrchestrator) StartServices(ctx context.Context, services []service.ServiceName) error {
-	args := []string{"compose", "-f", d.composeFile, "up", "-d"}
-	for _, svc := range services {
-		args = append(args, svc.String())
+	serviceNames := make([]string, len(services))
+	for i, svc := range services {
+		serviceNames[i] = svc.String()
 	}
 
+	ui.SubStep("Building and starting: %s", strings.Join(serviceNames, ", "))
+
+	args := []string{"compose", "-f", d.composeFile, "up", "-d", "--build"}
+	args = append(args, serviceNames...)
+
+	ui.Debug("Running: docker %s", strings.Join(args, " "))
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = d.workingDir
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("failed to start services: %w\n%s", err, output)
+		ui.Errorf("Docker compose output:\n%s", string(output))
+		return fmt.Errorf("failed to start services: %w", err)
 	}
 
 	return nil
