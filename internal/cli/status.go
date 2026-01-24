@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/vivekkundariya/grund/internal/application/queries"
@@ -28,34 +29,52 @@ var statusCmd = &cobra.Command{
 			return nil
 		}
 
+		// Define column widths
+		const (
+			nameWidth   = 20
+			statusWidth = 15
+		)
+
 		// Print header
-		fmt.Printf("\n%-20s %-12s %-10s\n", "SERVICE", "STATUS", "HEALTH")
-		fmt.Printf("%-20s %-12s %-10s\n", "-------", "------", "------")
+		fmt.Println()
+		fmt.Printf("  %s%s\n",
+			padRight("SERVICE", nameWidth),
+			"STATUS")
+		fmt.Printf("  %s%s\n",
+			strings.Repeat("─", nameWidth-2)+"  ",
+			strings.Repeat("─", statusWidth-2))
 
 		for _, s := range statuses {
-			statusStr := s.Status
-			healthStr := s.Health
-
-			// Colorize based on status
-			if s.Status == "running" {
-				statusStr = ui.Success(s.Status)
-			} else if s.Status == "exited" {
-				statusStr = ui.Error(s.Status)
-			} else {
-				statusStr = ui.Warning(s.Status)
+			// Get status icon and color
+			var statusIcon, statusColor string
+			switch s.Status {
+			case "running":
+				statusIcon = "●"
+				statusColor = ui.Green
+			case "exited":
+				statusIcon = "●"
+				statusColor = ui.Red
+			default:
+				statusIcon = "○"
+				statusColor = ui.Yellow
 			}
 
-			// Colorize health
-			if s.Health == "healthy" {
-				healthStr = ui.Success(s.Health)
-			} else if s.Health == "unhealthy" {
-				healthStr = ui.Error(s.Health)
-			}
-
-			fmt.Printf("%-20s %-12s %-10s\n", s.Name, statusStr, healthStr)
+			// Print row with proper padding (pad BEFORE colorizing)
+			fmt.Printf("  %s%s%s %s%s\n",
+				padRight(s.Name, nameWidth),
+				statusColor, statusIcon,
+				s.Status, ui.Reset)
 		}
 		fmt.Println()
 
 		return nil
 	},
+}
+
+// padRight pads a string to the right with spaces
+func padRight(s string, width int) string {
+	if len(s) >= width {
+		return s
+	}
+	return s + strings.Repeat(" ", width-len(s))
 }
