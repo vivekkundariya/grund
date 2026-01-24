@@ -2,8 +2,10 @@ package cli
 
 import (
 	"fmt"
-	"strings"
+	"os"
 
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/spf13/cobra"
 	"github.com/vivekkundariya/grund/internal/application/queries"
 	"github.com/vivekkundariya/grund/internal/ui"
@@ -29,52 +31,38 @@ var statusCmd = &cobra.Command{
 			return nil
 		}
 
-		// Define column widths
-		const (
-			nameWidth   = 20
-			statusWidth = 15
-		)
+		t := table.NewWriter()
+		t.SetOutputMirror(os.Stdout)
+		t.SetStyle(table.StyleRounded)
 
-		// Print header
-		fmt.Println()
-		fmt.Printf("  %s%s\n",
-			padRight("SERVICE", nameWidth),
-			"STATUS")
-		fmt.Printf("  %s%s\n",
-			strings.Repeat("─", nameWidth-2)+"  ",
-			strings.Repeat("─", statusWidth-2))
+		t.AppendHeader(table.Row{"Service", "Status"})
 
 		for _, s := range statuses {
-			// Get status icon and color
-			var statusIcon, statusColor string
+			var statusIcon string
+			var statusColor text.Color
 			switch s.Status {
 			case "running":
 				statusIcon = "●"
-				statusColor = ui.Green
+				statusColor = text.FgGreen
 			case "exited":
 				statusIcon = "●"
-				statusColor = ui.Red
+				statusColor = text.FgRed
 			default:
 				statusIcon = "○"
-				statusColor = ui.Yellow
+				statusColor = text.FgYellow
 			}
 
-			// Print row with proper padding (pad BEFORE colorizing)
-			fmt.Printf("  %s%s%s %s%s\n",
-				padRight(s.Name, nameWidth),
-				statusColor, statusIcon,
-				s.Status, ui.Reset)
+			statusText := fmt.Sprintf("%s %s", statusIcon, s.Status)
+			t.AppendRow(table.Row{
+				s.Name,
+				statusColor.Sprint(statusText),
+			})
 		}
+
+		fmt.Println()
+		t.Render()
 		fmt.Println()
 
 		return nil
 	},
-}
-
-// padRight pads a string to the right with spaces
-func padRight(s string, width int) string {
-	if len(s) >= width {
-		return s
-	}
-	return s + strings.Repeat(" ", width-len(s))
 }
