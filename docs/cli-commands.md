@@ -1,0 +1,392 @@
+# Grund CLI Commands Reference
+
+This document provides detailed documentation for all Grund CLI commands.
+
+## Global Flags
+
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--config` | `-c` | Path to services registry file (overrides auto-detection) |
+| `--verbose` | `-v` | Enable verbose/debug output |
+| `--help` | `-h` | Show help for any command |
+
+## Configuration Resolution
+
+Grund automatically finds configuration in this priority order:
+
+1. **CLI flag**: `--config /path/to/services.yaml`
+2. **Environment variable**: `GRUND_CONFIG=/path/to/services.yaml`
+3. **Local file search**: Searches current and parent directories (up to 5 levels) for:
+   - `services.yaml`
+   - `grund-services.yaml`
+   - `grund.services.yaml`
+4. **Global config**: Uses `default_orchestration_repo` from `~/.grund/config.yaml`
+
+---
+
+## Commands
+
+### `grund up`
+
+Start services and their dependencies.
+
+```bash
+grund up [services...] [flags]
+```
+
+**Arguments:**
+- `services` (required): One or more service names to start
+
+**Flags:**
+| Flag | Description |
+|------|-------------|
+| `--no-deps` | Only start specified services, skip dependencies |
+| `--infra-only` | Only start infrastructure (postgres, redis, etc.), skip application services |
+| `--build` | Force rebuild containers |
+| `--local` | Run service locally (not in container) - *planned* |
+
+**What it does:**
+1. Loads service configurations from `grund.yaml` files
+2. Builds dependency graph and detects circular dependencies
+3. Computes topological sort for startup order
+4. Aggregates infrastructure requirements from all services
+5. Generates `docker-compose.generated.yaml`
+6. Starts infrastructure containers (postgres, mongodb, redis, localstack)
+7. Waits for infrastructure health checks
+8. Provisions resources (creates databases, SQS queues, SNS topics, S3 buckets)
+9. Starts application services in dependency order
+
+**Examples:**
+```bash
+# Start a single service with all dependencies
+grund up user-service
+
+# Start multiple services
+grund up user-service order-service
+
+# Start only the specified service (skip dependencies)
+grund up user-service --no-deps
+
+# Only start infrastructure, useful for local development
+grund up user-service --infra-only
+
+# Force rebuild containers
+grund up user-service --build
+
+# Verbose output for debugging
+grund up user-service -v
+```
+
+---
+
+### `grund down`
+
+Stop all running services and infrastructure.
+
+```bash
+grund down
+```
+
+**What it does:**
+1. Executes `docker compose down`
+2. Stops all containers defined in the compose file
+3. Removes containers and networks (volumes preserved)
+
+**Examples:**
+```bash
+# Stop all services
+grund down
+```
+
+---
+
+### `grund status`
+
+Show the status of all services and infrastructure.
+
+```bash
+grund status
+```
+
+**Output:**
+Displays a table with:
+- Service name
+- Status (running/exited/not running)
+- Health indicator (color-coded)
+
+**Examples:**
+```bash
+# Show all service statuses
+grund status
+```
+
+**Sample output:**
+```
+╭─────────────────┬──────────────╮
+│ Service         │ Status       │
+├─────────────────┼──────────────┤
+│ postgres        │ ● running    │
+│ redis           │ ● running    │
+│ user-service    │ ● running    │
+│ order-service   │ ○ not running│
+╰─────────────────┴──────────────╯
+```
+
+---
+
+### `grund logs`
+
+View logs from services.
+
+```bash
+grund logs [service] [flags]
+```
+
+**Arguments:**
+- `service` (optional): Specific service to view logs for. If omitted, shows aggregated logs.
+
+**Flags:**
+| Flag | Short | Default | Description |
+|------|-------|---------|-------------|
+| `--follow` | `-f` | false | Follow log output (like `tail -f`) |
+| `--tail` | | 100 | Number of lines to show from the end |
+
+**Examples:**
+```bash
+# View all service logs
+grund logs
+
+# View logs for a specific service
+grund logs user-service
+
+# Follow logs in real-time
+grund logs user-service -f
+
+# Show last 500 lines
+grund logs user-service --tail 500
+
+# Follow all logs
+grund logs -f
+```
+
+---
+
+### `grund restart`
+
+Restart a specific service.
+
+```bash
+grund restart <service>
+```
+
+**Arguments:**
+- `service` (required): The service to restart
+
+**What it does:**
+1. Executes `docker compose restart <service>`
+2. Restarts the container without rebuilding
+
+**Examples:**
+```bash
+# Restart a service after code changes
+grund restart user-service
+```
+
+---
+
+### `grund reset`
+
+Stop all services and optionally clean up resources.
+
+```bash
+grund reset [flags]
+```
+
+**Flags:**
+| Flag | Short | Description |
+|------|-------|-------------|
+| `--volumes` | `-v` | Remove named volumes (database data will be lost) |
+| `--images` | | Remove locally built images |
+
+**Examples:**
+```bash
+# Stop all services (preserves data)
+grund reset
+
+# Stop and remove volumes (fresh start, loses all data)
+grund reset -v
+
+# Full cleanup: stop, remove volumes and images
+grund reset -v --images
+```
+
+**Warning:** Using `--volumes` will delete all database data. Use with caution.
+
+---
+
+### `grund config`
+
+Show Grund configuration and service details.
+
+```bash
+grund config [service]
+```
+
+**Arguments:**
+- `service` (optional): Service name to show detailed configuration for
+
+**Without arguments:**
+Shows:
+- Services file location
+- Orchestration root directory
+- Global config path
+- Global settings (default paths, docker command, localstack endpoint)
+- List of registered services
+
+**With service name:**
+Shows:
+- Service name, type, and port
+- Dependencies (other services)
+- Infrastructure requirements
+- Resolved environment variables
+
+**Examples:**
+```bash
+# Show overall Grund setup
+grund config
+
+# Show specific service configuration
+grund config user-service
+```
+
+---
+
+### `grund init`
+
+Initialize Grund configuration for a new service.
+
+```bash
+grund init
+```
+
+**What it does:**
+Interactive wizard that creates a `grund.yaml` file in the current directory.
+
+**Prompts for:**
+1. **Service basics**: Name, type (go/python/node), port
+2. **Build configuration**: Dockerfile path, health check endpoint
+3. **Infrastructure**: PostgreSQL, MongoDB, Redis, SQS, SNS, S3
+4. **Service dependencies**: Other services this service depends on
+
+**Examples:**
+```bash
+# Initialize in a service directory
+cd my-service
+grund init
+```
+
+**Sample output:**
+```
+Initializing Grund configuration...
+Press Enter to accept defaults shown in [brackets]
+
+Service name [my-service]:
+Service type (go/python/node) [go]:
+Port [8080]: 3000
+Dockerfile path [Dockerfile]:
+Health check endpoint [/health]: /api/health
+
+--- Infrastructure Requirements ---
+Need PostgreSQL? [y/N]: y
+  Database name [my-service_db]:
+  Migrations path (leave empty if none): ./migrations
+Need MongoDB? [y/N]: n
+Need Redis? [y/N]: y
+Need SQS queues? [y/N]: y
+  Queue names (comma-separated): orders, notifications
+...
+```
+
+---
+
+### `grund setup`
+
+Initialize global Grund configuration.
+
+```bash
+grund setup
+```
+
+**What it does:**
+Creates `~/.grund/config.yaml` with default settings.
+
+**Global config options:**
+- `default_services_file`: Default filename to search for (default: `services.yaml`)
+- `default_orchestration_repo`: Default path to orchestration repository
+- `services_base_path`: Where to clone service repositories
+- `docker.compose_command`: Docker compose command (default: `docker compose`)
+- `localstack.endpoint`: LocalStack endpoint (default: `http://localhost:4566`)
+- `localstack.region`: AWS region for LocalStack (default: `us-east-1`)
+
+**Examples:**
+```bash
+# One-time setup for a new machine
+grund setup
+```
+
+---
+
+### `grund add`
+
+Add infrastructure to an existing service.
+
+```bash
+grund add <infrastructure> [flags]
+```
+
+**Supported infrastructure:**
+- `postgres` - PostgreSQL database
+- `mongodb` - MongoDB database
+- `redis` - Redis cache
+- `sqs` - SQS queues (with optional DLQ)
+- `sns` - SNS topics
+- `s3` - S3 buckets
+
+**Examples:**
+```bash
+# Add PostgreSQL to current service
+grund add postgres --database mydb
+
+# Add SQS queue
+grund add sqs --queue orders --dlq
+
+# Add multiple S3 buckets
+grund add s3 --bucket uploads --bucket documents
+```
+
+---
+
+## Exit Codes
+
+| Code | Meaning |
+|------|---------|
+| 0 | Success |
+| 1 | General error (check message) |
+
+---
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `GRUND_CONFIG` | Path to services registry file |
+| `GRUND_VERBOSE` | Enable verbose output (set to `1` or `true`) |
+
+---
+
+## See Also
+
+- [Architecture Overview](./architecture.md)
+- [Algorithms](./algorithms.md)
+- [Configuration Reference](./configuration.md)
+- [Adding New Infrastructure](./adding-new-infrastructure.md)
