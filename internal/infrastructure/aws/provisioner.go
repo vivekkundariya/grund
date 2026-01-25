@@ -54,7 +54,9 @@ func (p *LocalStackProvisioner) ProvisionLocalStack(ctx context.Context, req inf
 
 	sqsClient := sqs.NewFromConfig(cfg)
 	snsClient := sns.NewFromConfig(cfg)
-	s3Client := s3.NewFromConfig(cfg)
+	s3Client := s3.NewFromConfig(cfg, func(o *s3.Options) {
+		o.UsePathStyle = true // Required for LocalStack and bucket names with dots
+	})
 
 	queueArns := make(map[string]string)
 
