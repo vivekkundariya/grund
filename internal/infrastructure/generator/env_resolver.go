@@ -21,7 +21,7 @@ func NewEnvironmentResolver() ports.EnvironmentResolver {
 //   - ${postgres.host}, ${postgres.port}, ${postgres.database}
 //   - ${redis.host}, ${redis.port}
 //   - ${mongodb.host}, ${mongodb.port}
-//   - ${localstack.endpoint}, ${localstack.region}
+//   - ${localstack.endpoint}, ${localstack.region}, ${localstack.account_id}
 //   - ${sqs.<queue-name>.url}, ${sqs.<queue-name>.arn}, ${sqs.<queue-name>.dlq}
 //   - ${sns.<topic-name>.arn}
 //   - ${s3.<bucket-name>.name}, ${s3.<bucket-name>.url}
@@ -140,8 +140,8 @@ func (r *EnvironmentResolverImpl) resolveLocalStack(parts []string, context port
 		endpoint := context.LocalStack.Endpoint
 		endpoint = strings.TrimPrefix(endpoint, "http://")
 		endpoint = strings.TrimPrefix(endpoint, "https://")
-		parts := strings.Split(endpoint, ":")
-		return parts[0], nil
+		hostParts := strings.Split(endpoint, ":")
+		return hostParts[0], nil
 	case "port":
 		return "4566", nil
 	case "region":
@@ -150,6 +150,8 @@ func (r *EnvironmentResolverImpl) resolveLocalStack(parts []string, context port
 		return context.LocalStack.AccessKeyID, nil
 	case "secret_access_key", "secretAccessKey":
 		return context.LocalStack.SecretAccessKey, nil
+	case "account_id", "accountId":
+		return context.LocalStack.AccountID, nil
 	default:
 		return "", fmt.Errorf("unknown property %s for localstack", parts[0])
 	}
@@ -166,11 +168,15 @@ func (r *EnvironmentResolverImpl) resolveSQS(parts []string, context ports.Envir
 	queue, ok := context.SQS[queueName]
 	if !ok {
 		// Generate URL based on naming convention if not explicitly set
+		accountID := context.LocalStack.AccountID
+		if accountID == "" {
+			accountID = "000000000000"
+		}
 		queue = ports.QueueContext{
 			Name: queueName,
-			URL:  fmt.Sprintf("%s/000000000000/%s", context.LocalStack.Endpoint, queueName),
-			ARN:  fmt.Sprintf("arn:aws:sqs:%s:000000000000:%s", context.LocalStack.Region, queueName),
-			DLQ:  fmt.Sprintf("%s/000000000000/%s-dlq", context.LocalStack.Endpoint, queueName),
+			URL:  fmt.Sprintf("%s/%s/%s", context.LocalStack.Endpoint, accountID, queueName),
+			ARN:  fmt.Sprintf("arn:aws:sqs:%s:%s:%s", context.LocalStack.Region, accountID, queueName),
+			DLQ:  fmt.Sprintf("%s/%s/%s-dlq", context.LocalStack.Endpoint, accountID, queueName),
 		}
 	}
 
@@ -199,9 +205,13 @@ func (r *EnvironmentResolverImpl) resolveSNS(parts []string, context ports.Envir
 	topic, ok := context.SNS[topicName]
 	if !ok {
 		// Generate ARN based on naming convention if not explicitly set
+		accountID := context.LocalStack.AccountID
+		if accountID == "" {
+			accountID = "000000000000"
+		}
 		topic = ports.TopicContext{
 			Name: topicName,
-			ARN:  fmt.Sprintf("arn:aws:sns:%s:000000000000:%s", context.LocalStack.Region, topicName),
+			ARN:  fmt.Sprintf("arn:aws:sns:%s:%s:%s", context.LocalStack.Region, accountID, topicName),
 		}
 	}
 

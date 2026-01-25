@@ -285,6 +285,7 @@ func (g *ComposeGeneratorImpl) addInfrastructureServices(compose *ComposeFile, i
 				"SERVICES":           strings.Join(services, ","),
 				"DEBUG":              "0",
 				"AWS_DEFAULT_REGION": "us-east-1",
+				"AWS_ACCOUNT_ID":     "000000000000",
 				"DOCKER_HOST":        "unix:///var/run/docker.sock",
 			},
 			Volumes: []string{
@@ -342,6 +343,7 @@ func (g *ComposeGeneratorImpl) addApplicationServices(compose *ComposeFile, serv
 			resolvedEnv["AWS_REGION"] = selfContext.LocalStack.Region
 			resolvedEnv["AWS_ACCESS_KEY_ID"] = selfContext.LocalStack.AccessKeyID
 			resolvedEnv["AWS_SECRET_ACCESS_KEY"] = selfContext.LocalStack.SecretAccessKey
+			resolvedEnv["AWS_ACCOUNT_ID"] = selfContext.LocalStack.AccountID
 		}
 
 		// Build depends_on with conditions
