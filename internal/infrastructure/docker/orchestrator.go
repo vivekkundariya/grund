@@ -110,29 +110,58 @@ func (d *DockerOrchestrator) StartServices(ctx context.Context, services []servi
 
 // StopServices stops all services
 func (d *DockerOrchestrator) StopServices(ctx context.Context) error {
+	ui.Step("Stopping services...")
+
 	args := []string{"compose", "-f", d.composeFile, "down"}
+	ui.Debug("Running: docker %s", strings.Join(args, " "))
 
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = d.workingDir
 	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to stop services: %w\n%s", err, output)
+
+	// Show output regardless of error
+	if len(output) > 0 {
+		// Print each line with proper formatting
+		for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+			if line != "" {
+				ui.SubStep("%s", line)
+			}
+		}
 	}
 
+	if err != nil {
+		return fmt.Errorf("failed to stop services: %w", err)
+	}
+
+	ui.Successf("All services stopped")
 	return nil
 }
 
 // RestartService restarts a specific service
 func (d *DockerOrchestrator) RestartService(ctx context.Context, name service.ServiceName) error {
+	ui.Step("Restarting %s...", name.String())
+
 	args := []string{"compose", "-f", d.composeFile, "restart", name.String()}
+	ui.Debug("Running: docker %s", strings.Join(args, " "))
 
 	cmd := exec.CommandContext(ctx, "docker", args...)
 	cmd.Dir = d.workingDir
 	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("failed to restart service %s: %w\n%s", name, err, output)
+
+	// Show output regardless of error
+	if len(output) > 0 {
+		for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+			if line != "" {
+				ui.SubStep("%s", line)
+			}
+		}
 	}
 
+	if err != nil {
+		return fmt.Errorf("failed to restart service %s: %w", name, err)
+	}
+
+	ui.Successf("Service %s restarted", name.String())
 	return nil
 }
 
