@@ -45,15 +45,8 @@ func (h *ConfigQueryHandler) Handle(query ConfigQuery) (*ResolvedConfig, error) 
 		return nil, err
 	}
 
-	// Resolve environment variables
-	envContext := ports.EnvironmentContext{
-		Infrastructure: make(map[string]ports.InfrastructureContext),
-		Services:       make(map[string]ports.ServiceContext),
-		Self: ports.ServiceContext{
-			Host: "localhost",
-			Port: svc.Port.Value(),
-		},
-	}
+	// Build environment context based on service requirements
+	envContext := h.buildEnvironmentContext(svc)
 
 	resolvedEnv, err := h.envResolver.Resolve(svc.Environment.References, envContext)
 	if err != nil {
@@ -96,4 +89,94 @@ func (h *ConfigQueryHandler) Handle(query ConfigQuery) (*ResolvedConfig, error) 
 		Infrastructure: infraTypes,
 		Dependencies:   deps,
 	}, nil
+}
+
+// buildEnvironmentContext creates an environment context based on the service's requirements
+func (h *ConfigQueryHandler) buildEnvironmentContext(svc *service.Service) ports.EnvironmentContext {
+	ctx := ports.NewDefaultEnvironmentContext()
+
+	// Set self context
+	ctx.Self = ports.ServiceContext{
+		Host: svc.Name,
+		Port: svc.Port.Value(),
+		Config: make(map[string]interface{}),
+	}
+
+	// Add postgres if required
+	if svc.Dependencies.Infrastructure.Postgres != nil {
+		ctx.Infrastructure["postgres"] = ports.InfrastructureContext{
+			Host:     "postgres",
+			Port:     5432,
+			Database: svc.Dependencies.Infrastructure.Postgres.Database,
+			Username: "postgres",
+			Password: "postgres",
+		}
+		ctx.Self.Config["postgres.database"] = svc.Dependencies.Infrastructure.Postgres.Database
+	}
+
+	// Add mongodb if required
+	if svc.Dependencies.Infrastructure.MongoDB != nil {
+		ctx.Infrastructure["mongodb"] = ports.InfrastructureContext{
+			Host:     "mongodb",
+			Port:     27017,
+			Database: svc.Dependencies.Infrastructure.MongoDB.Database,
+		}
+		ctx.Self.Config["mongodb.database"] = svc.Dependencies.Infrastructure.MongoDB.Database
+	}
+
+	// Add redis if required
+	if svc.Dependencies.Infrastructure.Redis != nil {
+		ctx.Infrastructure["redis"] = ports.InfrastructureContext{
+			Host: "redis",
+			Port: 6379,
+		}
+	}
+
+	// Add SQS queues if required
+	if svc.Dependencies.Infrastructure.SQS != nil {
+		for _, queue := range svc.Dependencies.Infrastructure.SQS.Queues {
+			ctx.SQS[queue.Name] = ports.QueueContext{
+				Name: queue.Name,
+				URL:  ctx.LocalStack.Endpoint + "/000000000000/" + queue.Name,
+				ARN:  "arn:aws:sqs:" + ctx.LocalStack.Region + ":000000000000:" + queue.Name,
+				DLQ:  ctx.LocalStack.Endpoint + "/000000000000/" + queue.Name + "-dlq",
+			}
+		}
+	}
+
+	// Add SNS topics if required
+	if svc.Dependencies.Infrastructure.SNS != nil {
+		for _, topic := range svc.Dependencies.Infrastructure.SNS.Topics {
+			ctx.SNS[topic.Name] = ports.TopicContext{
+				Name: topic.Name,
+				ARN:  "arn:aws:sns:" + ctx.LocalStack.Region + ":000000000000:" + topic.Name,
+			}
+		}
+	}
+
+	// Add S3 buckets if required
+	if svc.Dependencies.Infrastructure.S3 != nil {
+		for _, bucket := range svc.Dependencies.Infrastructure.S3.Buckets {
+			ctx.S3[bucket.Name] = ports.BucketContext{
+				Name: bucket.Name,
+				URL:  ctx.LocalStack.Endpoint + "/" + bucket.Name,
+			}
+		}
+	}
+
+	// Add service dependencies
+	for _, dep := range svc.Dependencies.Services {
+		// For preview purposes, use container name as host
+		// In actual runtime, this would come from the resolved service
+		depSvc, err := h.serviceRepo.FindByName(dep)
+		if err == nil {
+			ctx.Services[dep.String()] = ports.ServiceContext{
+				Host:   dep.String(),
+				Port:   depSvc.Port.Value(),
+				Config: make(map[string]interface{}),
+			}
+		}
+	}
+
+	return ctx
 }
