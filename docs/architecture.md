@@ -2,6 +2,22 @@
 
 This document describes the architecture of Grund, which follows **SOLID principles** and **Domain-Driven Design (DDD)**.
 
+## Documentation Index
+
+| Document | Description |
+|----------|-------------|
+| [Architecture](./architecture.md) | This document - system architecture and design |
+| [CLI Commands](./cli-commands.md) | Complete CLI reference with examples |
+| [Algorithms](./algorithms.md) | Dependency resolution, topological sort, etc. |
+| [Configuration](./configuration.md) | All config files and schemas |
+| [Adding Infrastructure](./adding-new-infrastructure.md) | Guide to extend Grund |
+
+**Decision Logs:**
+| Document | Description |
+|----------|-------------|
+| [System Design](./decision-logs/2026-01-22-localdev-system-design.md) | Original system design decisions |
+| [Testing Strategy](./decision-logs/2026-01-22-testing-strategy.md) | Testing approach and patterns |
+
 ## Architecture Overview
 
 Grund uses a **layered architecture** with clear separation of concerns:
