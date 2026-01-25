@@ -8,77 +8,181 @@ import (
 
 	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
+	"github.com/vivekkundariya/grund/internal/application/ports"
 	"github.com/vivekkundariya/grund/internal/application/queries"
+	"github.com/vivekkundariya/grund/internal/config"
+	"github.com/vivekkundariya/grund/internal/domain/service"
 )
 
 var configCmd = &cobra.Command{
-	Use:   "config <service>",
-	Short: "Show resolved configuration for a service",
-	Long:  `Show the resolved configuration for a service, including environment variables, infrastructure, and dependencies.`,
-	Args:  cobra.ExactArgs(1),
+	Use:   "config [service]",
+	Short: "Show Grund configuration",
+	Long: `Show Grund configuration and setup.
+
+Without arguments: Shows overall setup (config file, registered services)
+With service name: Shows resolved configuration for that service
+
+Examples:
+  grund config              # Show setup overview
+  grund config user-service # Show service configuration`,
+	Args: cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if container == nil {
-			return fmt.Errorf("container not initialized")
+		if len(args) == 0 {
+			return showSetupInfo()
 		}
-
-		serviceName := args[0]
-
-		query := queries.ConfigQuery{ServiceName: serviceName}
-		config, err := container.ConfigQueryHandler.Handle(query)
-		if err != nil {
-			return err
-		}
-
-		// Service info
-		fmt.Printf("\n  Service: %s\n", config.Service.Name)
-		fmt.Printf("  Type:    %s\n", config.Service.Type)
-		fmt.Printf("  Port:    %d\n", config.Service.Port.Value())
-		fmt.Println()
-
-		// Dependencies
-		if len(config.Dependencies) > 0 {
-			fmt.Printf("  Dependencies: %s\n", strings.Join(config.Dependencies, ", "))
-		} else {
-			fmt.Println("  Dependencies: none")
-		}
-
-		// Infrastructure
-		if len(config.Infrastructure) > 0 {
-			fmt.Printf("  Infrastructure: %s\n", strings.Join(config.Infrastructure, ", "))
-		} else {
-			fmt.Println("  Infrastructure: none")
-		}
-		fmt.Println()
-
-		// Environment variables table
-		if len(config.Environment) > 0 {
-			t := table.NewWriter()
-			t.SetOutputMirror(os.Stdout)
-			t.SetStyle(table.StyleRounded)
-			t.AppendHeader(table.Row{"Environment Variable", "Value"})
-
-			// Sort keys for consistent output
-			keys := make([]string, 0, len(config.Environment))
-			for k := range config.Environment {
-				keys = append(keys, k)
-			}
-			sort.Strings(keys)
-
-			for _, k := range keys {
-				v := config.Environment[k]
-				// Truncate long values
-				if len(v) > 60 {
-					v = v[:57] + "..."
-				}
-				t.AppendRow(table.Row{k, v})
-			}
-
-			t.Render()
-		} else {
-			fmt.Println("  No environment variables configured")
-		}
-		fmt.Println()
-
-		return nil
+		return showServiceConfig(args[0])
 	},
+}
+
+func showSetupInfo() error {
+	if configResolver == nil {
+		return fmt.Errorf("config not initialized")
+	}
+
+	// Get config file path
+	servicesPath, orchestrationRoot, err := configResolver.ResolveServicesFile()
+	if err != nil {
+		return err
+	}
+
+	// Get global config path
+	globalConfigPath, _ := config.GetGlobalConfigPath()
+
+	fmt.Println()
+	fmt.Println("  Grund Configuration")
+	fmt.Println("  " + strings.Repeat("─", 40))
+	fmt.Println()
+	fmt.Printf("  Services file:      %s\n", servicesPath)
+	fmt.Printf("  Orchestration root: %s\n", orchestrationRoot)
+	fmt.Printf("  Global config:      %s\n", globalConfigPath)
+	fmt.Println()
+
+	// Show global config values
+	if configResolver.GlobalConfig != nil {
+		gc := configResolver.GlobalConfig
+
+		fmt.Println("  Global Settings")
+		fmt.Println("  " + strings.Repeat("─", 40))
+
+		t := table.NewWriter()
+		t.SetOutputMirror(os.Stdout)
+		t.SetStyle(table.StyleRounded)
+		t.AppendHeader(table.Row{"Setting", "Value"})
+
+		if gc.DefaultServicesFile != "" {
+			t.AppendRow(table.Row{"default_services_file", gc.DefaultServicesFile})
+		}
+		if gc.DefaultOrchestrationRepo != "" {
+			t.AppendRow(table.Row{"default_orchestration_repo", gc.DefaultOrchestrationRepo})
+		}
+		if gc.ServicesBasePath != "" {
+			t.AppendRow(table.Row{"services_base_path", gc.ServicesBasePath})
+		}
+		t.AppendRow(table.Row{"docker.compose_command", gc.Docker.ComposeCommand})
+		t.AppendRow(table.Row{"localstack.endpoint", gc.LocalStack.Endpoint})
+		t.AppendRow(table.Row{"localstack.region", gc.LocalStack.Region})
+
+		t.Render()
+		fmt.Println()
+	}
+
+	// Get registered services
+	if container != nil && container.RegistryRepo != nil {
+		if registryRepo, ok := container.RegistryRepo.(ports.ServiceRegistryRepository); ok {
+			services, err := registryRepo.GetAllServices()
+			if err == nil && len(services) > 0 {
+				fmt.Println("  Registered Services")
+				fmt.Println("  " + strings.Repeat("─", 40))
+
+				t := table.NewWriter()
+				t.SetOutputMirror(os.Stdout)
+				t.SetStyle(table.StyleRounded)
+				t.AppendHeader(table.Row{"Service", "Path"})
+
+				// Sort service names
+				names := make([]string, 0, len(services))
+				for name := range services {
+					names = append(names, string(name))
+				}
+				sort.Strings(names)
+
+				for _, name := range names {
+					svc := services[service.ServiceName(name)]
+					t.AppendRow(table.Row{name, svc.Path})
+				}
+
+				t.Render()
+				fmt.Println()
+			}
+		}
+	}
+
+	fmt.Println("  Use 'grund config <service>' to see service details")
+	fmt.Println()
+
+	return nil
+}
+
+func showServiceConfig(serviceName string) error {
+	if container == nil {
+		return fmt.Errorf("container not initialized")
+	}
+
+	query := queries.ConfigQuery{ServiceName: serviceName}
+	config, err := container.ConfigQueryHandler.Handle(query)
+	if err != nil {
+		return err
+	}
+
+	// Service info
+	fmt.Printf("\n  Service: %s\n", config.Service.Name)
+	fmt.Printf("  Type:    %s\n", config.Service.Type)
+	fmt.Printf("  Port:    %d\n", config.Service.Port.Value())
+	fmt.Println()
+
+	// Dependencies
+	if len(config.Dependencies) > 0 {
+		fmt.Printf("  Dependencies: %s\n", strings.Join(config.Dependencies, ", "))
+	} else {
+		fmt.Println("  Dependencies: none")
+	}
+
+	// Infrastructure
+	if len(config.Infrastructure) > 0 {
+		fmt.Printf("  Infrastructure: %s\n", strings.Join(config.Infrastructure, ", "))
+	} else {
+		fmt.Println("  Infrastructure: none")
+	}
+	fmt.Println()
+
+	// Environment variables table
+	if len(config.Environment) > 0 {
+		t := table.NewWriter()
+		t.SetOutputMirror(os.Stdout)
+		t.SetStyle(table.StyleRounded)
+		t.AppendHeader(table.Row{"Environment Variable", "Value"})
+
+		// Sort keys for consistent output
+		keys := make([]string, 0, len(config.Environment))
+		for k := range config.Environment {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, k := range keys {
+			v := config.Environment[k]
+			// Truncate long values
+			if len(v) > 60 {
+				v = v[:57] + "..."
+			}
+			t.AppendRow(table.Row{k, v})
+		}
+
+		t.Render()
+	} else {
+		fmt.Println("  No environment variables configured")
+	}
+	fmt.Println()
+
+	return nil
 }
