@@ -77,6 +77,7 @@ type LocalStackContext struct {
 	Region          string
 	AccessKeyID     string
 	SecretAccessKey string
+	AccountID       string
 }
 
 // NewDefaultEnvironmentContext creates a default environment context
@@ -93,6 +94,7 @@ func NewDefaultEnvironmentContext() EnvironmentContext {
 			Region:          "us-east-1",
 			AccessKeyID:     "test",
 			SecretAccessKey: "test",
+			AccountID:       "000000000000",
 		},
 	}
 }

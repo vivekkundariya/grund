@@ -457,8 +457,18 @@ Use these placeholders in `env_refs`:
 | `${mongodb.port}` | MongoDB port (27017) |
 | `${redis.host}` | Redis hostname |
 | `${redis.port}` | Redis port (6379) |
+| `${localstack.endpoint}` | LocalStack endpoint URL |
 | `${localstack.host}` | LocalStack hostname |
 | `${localstack.port}` | LocalStack port (4566) |
+| `${localstack.region}` | AWS region (us-east-1) |
+| `${localstack.account_id}` | AWS account ID (000000000000) |
+| `${localstack.access_key_id}` | AWS access key ID |
+| `${localstack.secret_access_key}` | AWS secret access key |
+| `${sqs.<queue>.url}` | SQS queue URL |
+| `${sqs.<queue>.arn}` | SQS queue ARN |
+| `${sqs.<queue>.dlq}` | SQS dead-letter queue URL |
+| `${sns.<topic>.arn}` | SNS topic ARN |
+| `${s3.<bucket>.url}` | S3 bucket URL |
 | `${<service>.host}` | Dependent service hostname |
 | `${<service>.port}` | Dependent service port |
 | `${self.postgres.database}` | This service's database name |
