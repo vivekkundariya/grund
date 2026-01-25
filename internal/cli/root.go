@@ -50,8 +50,8 @@ Examples:
 			return nil
 		}
 
-		// Skip for init command (doesn't need existing services.yaml)
-		if cmd.Name() == "init" {
+		// Skip for init and setup commands (don't need existing services.yaml)
+		if cmd.Name() == "init" || cmd.Name() == "setup" {
 			return nil
 		}
 
@@ -102,23 +102,25 @@ func init() {
 	rootCmd.AddCommand(resetCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(initCmd)
-	rootCmd.AddCommand(cloneCmd)
-	rootCmd.AddCommand(newConfigInitCmd())
+	rootCmd.AddCommand(newSetupCmd())
 }
 
-// newConfigInitCmd creates the config init subcommand
-func newConfigInitCmd() *cobra.Command {
+// newSetupCmd creates the setup subcommand for global configuration
+func newSetupCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "config-init",
+		Use:   "setup",
 		Short: "Initialize global Grund configuration",
 		Long: `Initialize the global Grund configuration at ~/.grund/config.yaml.
 
-This creates a default configuration file that you can customize.`,
+This is a one-time setup for your machine. It creates a default configuration
+file that you can customize with your preferred paths and settings.
+
+For initializing a service with grund.yaml, use 'grund init' instead.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := config.InitGlobalConfig(); err != nil {
 				return fmt.Errorf("failed to initialize config: %w", err)
 			}
-			
+
 			configPath, _ := config.GetGlobalConfigPath()
 			fmt.Printf("Global config initialized at: %s\n", configPath)
 			fmt.Println("\nYou can customize this file to set default paths and options.")

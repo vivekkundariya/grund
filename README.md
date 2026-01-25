@@ -43,10 +43,11 @@ make install
 | `status`  | Show running services and health         |
 | `logs`    | View aggregated or per-service logs      |
 | `restart` | Restart specific service(s)              |
-| `reset`   | Stop, clean volumes, restart fresh       |
-| `config`  | Validate and show resolved config        |
-| `init`    | Initialize grund in current service     |
-| `clone`   | Clone all registered service repos      |
+| `reset`   | Stop services and clean up resources     |
+| `config`  | Show resolved configuration for a service|
+| `init`    | Initialize grund.yaml in current service |
+| `add`     | Add a resource to existing grund.yaml    |
+| `setup`   | Initialize global ~/.grund/config.yaml   |
 
 ## Project Structure
 
