@@ -77,7 +77,8 @@ func NewContainerWithConfig(orchestrationRoot, servicesPath string, configResolv
 
 	// Initialize infrastructure adapters
 	composeFile := docker.GetComposeFilePath(orchestrationRoot)
-	orchestrator := docker.NewDockerOrchestrator(composeFile, orchestrationRoot)
+	projectName := docker.GetProjectName(orchestrationRoot)
+	orchestrator := docker.NewDockerOrchestrator(composeFile, orchestrationRoot, projectName)
 	healthChecker := docker.NewHTTPHealthChecker()
 
 	// Initialize provisioners

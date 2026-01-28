@@ -49,8 +49,9 @@ Examples:
 			return nil
 		}
 
-		// Skip for init and setup commands (don't need existing services.yaml)
-		if cmd.Name() == "init" || cmd.Name() == "setup" {
+		// Skip for init, setup, and down commands (don't need existing services.yaml)
+		// down can work without a project context by stopping all projects
+		if cmd.Name() == "init" || cmd.Name() == "setup" || cmd.Name() == "down" {
 			return nil
 		}
 

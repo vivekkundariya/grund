@@ -31,9 +31,10 @@ var logsCmd = &cobra.Command{
 		}
 
 		composeFile := docker.GetComposeFilePath(orchestrationRoot)
+		projectName := docker.GetProjectName(orchestrationRoot)
 
-		// Build docker compose logs command
-		dockerArgs := []string{"compose", "-f", composeFile, "logs"}
+		// Build docker compose logs command with project name
+		dockerArgs := []string{"compose", "-p", projectName, "-f", composeFile, "logs"}
 
 		if logsFollow {
 			dockerArgs = append(dockerArgs, "-f")
