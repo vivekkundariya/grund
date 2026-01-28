@@ -2,6 +2,7 @@ package docker
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os/exec"
 	"path/filepath"
@@ -11,6 +12,19 @@ import (
 	"github.com/vivekkundariya/grund/internal/domain/service"
 	"github.com/vivekkundariya/grund/internal/ui"
 )
+
+// dockerComposeService represents the JSON output from docker compose ps
+type dockerComposeService struct {
+	Name       string `json:"Name"`
+	State      string `json:"State"`
+	Health     string `json:"Health"`
+	Publishers []struct {
+		URL           string `json:"URL"`
+		TargetPort    int    `json:"TargetPort"`
+		PublishedPort int    `json:"PublishedPort"`
+		Protocol      string `json:"Protocol"`
+	} `json:"Publishers"`
+}
 
 // DockerOrchestrator implements ContainerOrchestrator using Docker Compose
 // This is an infrastructure adapter
@@ -180,20 +194,53 @@ func (d *DockerOrchestrator) GetServiceStatus(ctx context.Context, name service.
 		}, nil
 	}
 
-	// Parse JSON output - docker compose ps --format json returns one JSON object per line
+	outputStr := strings.TrimSpace(string(output))
+	if outputStr == "" {
+		return ports.ServiceStatus{
+			Name:   name.String(),
+			Status: "not running",
+			Health: "unknown",
+		}, nil
+	}
+
+	// Parse JSON output
+	var svc dockerComposeService
+	if err := json.Unmarshal([]byte(outputStr), &svc); err != nil {
+		// Fallback to simple parsing if JSON fails
+		return d.parseStatusFallback(name.String(), outputStr), nil
+	}
+
 	status := ports.ServiceStatus{
 		Name:   name.String(),
+		Status: strings.ToLower(svc.State),
+		Health: svc.Health,
+	}
+
+	if status.Health == "" {
+		status.Health = "-"
+	}
+
+	// Build localhost URL from publishers
+	if len(svc.Publishers) > 0 {
+		for _, pub := range svc.Publishers {
+			if pub.PublishedPort > 0 {
+				status.Endpoint = fmt.Sprintf("http://localhost:%d", pub.PublishedPort)
+				break // Use first published port
+			}
+		}
+	}
+
+	return status, nil
+}
+
+// parseStatusFallback handles cases where JSON parsing fails
+func (d *DockerOrchestrator) parseStatusFallback(name, outputStr string) ports.ServiceStatus {
+	status := ports.ServiceStatus{
+		Name:   name,
 		Status: "unknown",
 		Health: "unknown",
 	}
 
-	outputStr := strings.TrimSpace(string(output))
-	if outputStr == "" {
-		status.Status = "not running"
-		return status, nil
-	}
-
-	// Simple parsing - look for State and Health fields
 	if strings.Contains(outputStr, `"State":"running"`) || strings.Contains(outputStr, `"State": "running"`) {
 		status.Status = "running"
 	} else if strings.Contains(outputStr, `"State":"exited"`) || strings.Contains(outputStr, `"State": "exited"`) {
@@ -208,7 +255,7 @@ func (d *DockerOrchestrator) GetServiceStatus(ctx context.Context, name service.
 		status.Health = "-"
 	}
 
-	return status, nil
+	return status
 }
 
 // GetAllServiceStatuses gets status of all services in the compose file

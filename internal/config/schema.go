@@ -4,11 +4,26 @@ import "time"
 
 // ServiceConfig represents the grund.yaml in each service
 type ServiceConfig struct {
-	Version  string                `yaml:"version"`
-	Service  ServiceInfo           `yaml:"service"`
-	Requires Requirements          `yaml:"requires"`
-	Env      map[string]string     `yaml:"env"`
-	EnvRefs  map[string]string     `yaml:"env_refs"`
+	Version  string                      `yaml:"version"`
+	Service  ServiceInfo                 `yaml:"service"`
+	Requires Requirements                `yaml:"requires"`
+	Env      map[string]string           `yaml:"env"`
+	EnvRefs  map[string]string           `yaml:"env_refs"`
+	Secrets  map[string]SecretConfig     `yaml:"secrets,omitempty"`
+}
+
+// SecretConfig defines a secret required by the service
+type SecretConfig struct {
+	Description string `yaml:"description"`
+	Required    *bool  `yaml:"required,omitempty"` // nil defaults to true
+}
+
+// IsRequired returns true if the secret is required (default: true)
+func (s SecretConfig) IsRequired() bool {
+	if s.Required == nil {
+		return true // default to required
+	}
+	return *s.Required
 }
 
 type ServiceInfo struct {
@@ -85,7 +100,9 @@ type TopicConfig struct {
 }
 
 type SubscriptionConfig struct {
-	Queue string `yaml:"queue"`
+	Protocol   string            `yaml:"protocol"`
+	Endpoint   string            `yaml:"endpoint"`
+	Attributes map[string]string `yaml:"attributes,omitempty"`
 }
 
 type S3Config struct {

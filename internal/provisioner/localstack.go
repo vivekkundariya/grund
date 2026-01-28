@@ -74,20 +74,29 @@ func ProvisionAWSResources(ctx context.Context, resources AWSResources, endpoint
 			return fmt.Errorf("failed to create topic %s: %w", topic.Name, err)
 		}
 
-		// Subscribe SQS queues to topic
+		// Subscribe endpoints to topic
 		for _, sub := range topic.Subscriptions {
-			queueArn, ok := queueArns[sub.Queue]
-			if !ok {
-				return fmt.Errorf("queue %s not found for subscription", sub.Queue)
-			}
-
-			_, err := snsClient.Subscribe(ctx, &sns.SubscribeInput{
+			// For now, this provisioner expects resolved endpoints (ARNs directly)
+			// The main provisioner in infrastructure/aws handles template resolution
+			subResult, err := snsClient.Subscribe(ctx, &sns.SubscribeInput{
 				TopicArn: result.TopicArn,
-				Protocol: aws.String("sqs"),
-				Endpoint: aws.String(queueArn),
+				Protocol: aws.String(sub.Protocol),
+				Endpoint: aws.String(sub.Endpoint),
 			})
 			if err != nil {
-				return fmt.Errorf("failed to subscribe %s to %s: %w", sub.Queue, topic.Name, err)
+				return fmt.Errorf("failed to subscribe %s to %s: %w", sub.Endpoint, topic.Name, err)
+			}
+
+			// Set subscription attributes (FilterPolicy, FilterPolicyScope, etc.)
+			for attrName, attrValue := range sub.Attributes {
+				_, err := snsClient.SetSubscriptionAttributes(ctx, &sns.SetSubscriptionAttributesInput{
+					SubscriptionArn: subResult.SubscriptionArn,
+					AttributeName:   aws.String(attrName),
+					AttributeValue:  aws.String(attrValue),
+				})
+				if err != nil {
+					return fmt.Errorf("failed to set attribute %s on subscription: %w", attrName, err)
+				}
 			}
 		}
 	}

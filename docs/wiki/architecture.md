@@ -15,8 +15,8 @@ This document describes the architecture of Grund, which follows **SOLID princip
 **Decision Logs:**
 | Document | Description |
 |----------|-------------|
-| [System Design](./decision-logs/2026-01-22-localdev-system-design.md) | Original system design decisions |
-| [Testing Strategy](./decision-logs/2026-01-22-testing-strategy.md) | Testing approach and patterns |
+| [System Design](plans/2026-01-22-localdev-system-design.md) | Original system design decisions |
+| [Testing Strategy](plans/2026-01-22-testing-strategy.md) | Testing approach and patterns |
 
 ## Architecture Overview
 
@@ -434,7 +434,7 @@ func NewContainerWithConfig(orchestrationRoot, servicesPath string, configResolv
 ### 2. Open/Closed Principle (OCP)
 - New infrastructure types can be added without modifying existing code
 - Add new provisioner → register in `CompositeInfrastructureProvisioner`
-- See `docs/adding-new-infrastructure.md` for the extension pattern
+- See [Adding New Infrastructure](./adding-new-infrastructure.md) for the extension pattern
 
 ### 3. Liskov Substitution Principle (LSP)
 - All `ports.*` interfaces can be substituted with test doubles

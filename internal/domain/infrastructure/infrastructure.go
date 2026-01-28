@@ -78,7 +78,9 @@ type TopicConfig struct {
 
 // SubscriptionConfig represents an SNS subscription
 type SubscriptionConfig struct {
-	Queue string
+	Protocol   string
+	Endpoint   string            // Template: "${sqs.queue-name.arn}"
+	Attributes map[string]string // AWS subscription attributes (FilterPolicy, FilterPolicyScope, etc.)
 }
 
 // S3Config represents S3 bucket configuration

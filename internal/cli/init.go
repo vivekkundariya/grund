@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/vivekkundariya/grund/internal/ui"
 	"gopkg.in/yaml.v3"
 )
 
@@ -226,16 +227,30 @@ func promptChoice(reader *bufio.Reader, question string, choices []string, defau
 }
 
 // splitAndTrim splits a comma-separated string and trims whitespace
+// It also filters out invalid resource names like "n", "N", "no", "yes", etc.
 func splitAndTrim(s string) []string {
 	parts := strings.Split(s, ",")
 	result := make([]string, 0, len(parts))
 	for _, p := range parts {
 		p = strings.TrimSpace(p)
-		if p != "" {
-			result = append(result, p)
+		if p == "" {
+			continue
 		}
+		if isInvalidResourceName(p) {
+			ui.Warnf("Skipping invalid resource name: %q (looks like a yes/no response)", p)
+			continue
+		}
+		result = append(result, p)
 	}
 	return result
+}
+
+// isInvalidResourceName checks if a string looks like a yes/no response
+// rather than a valid resource name
+func isInvalidResourceName(name string) bool {
+	lower := strings.ToLower(name)
+	invalidNames := []string{"n", "no", "y", "yes"}
+	return slices.Contains(invalidNames, lower)
 }
 
 // generateGrundYAML creates the YAML content from config

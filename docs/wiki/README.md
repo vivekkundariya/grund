@@ -39,8 +39,8 @@ grund down
 
 | Document | Description |
 |----------|-------------|
-| [System Design](./decision-logs/2026-01-22-localdev-system-design.md) | Original architecture decisions and rationale |
-| [Testing Strategy](./decision-logs/2026-01-22-testing-strategy.md) | Testing approach and patterns |
+| [System Design](../plans/2026-01-22-localdev-system-design.md) | Original architecture decisions and rationale |
+| [Testing Strategy](../plans/2026-01-22-testing-strategy.md) | Testing approach and patterns |
 
 ## Key Concepts
 
