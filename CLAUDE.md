@@ -39,7 +39,26 @@ internal/
   infrastructure/   # Adapters (docker, aws, config, generator)
   config/           # Configuration management
 test/               # Mocks, helpers, integration tests
+docs/
+  wiki/             # User-facing documentation (architecture, CLI, config guides)
+  plans/            # Design documents and implementation plans (dated)
 ```
+
+## Documentation
+
+### `docs/wiki/`
+Permanent reference documentation for users and contributors:
+- `architecture.md` - System design, DDD layers, SOLID principles
+- `cli-commands.md` - Complete command reference with examples
+- `configuration.md` - All configuration files and schemas
+- `algorithms.md` - Dependency resolution, topological sort
+- `adding-new-infrastructure.md` - Extension guide
+
+### `docs/plans/`
+Timestamped design documents and implementation plans:
+- Named as `YYYY-MM-DD-<topic>-design.md`
+- Capture decisions, trade-offs, and rationale
+- Reference these when understanding "why" something was built a certain way
 
 ## Code Standards
 

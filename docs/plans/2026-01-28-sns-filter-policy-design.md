@@ -71,7 +71,7 @@ type SubscriptionConfig struct {
 | `internal/config/schema.go` | Update `SubscriptionConfig` struct |
 | `internal/domain/infrastructure/infrastructure.go` | Update domain `SubscriptionConfig` |
 | `internal/infrastructure/aws/provisioner.go` | Add template resolution + `SetSubscriptionAttributes` |
-| `docs/configuration.md` | Update SNS documentation |
+| `docs/wiki/configuration.md` | Update SNS documentation |
 
 ## Breaking Change
 
