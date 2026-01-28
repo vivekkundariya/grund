@@ -10,13 +10,23 @@ import (
 // Priority order (highest to lowest):
 // 1. CLI flag (--config)
 // 2. Environment variable (GRUND_CONFIG)
-// 3. Default: ~/.grund/services.yaml
+// 3. Local file in current directory (services.yaml, grund-services.yaml)
+// 4. Parent directory traversal
+// 5. Global config: ~/.grund/services.yaml
 type ConfigResolver struct {
 	// CLIConfigPath is set via --config flag
 	CLIConfigPath string
 
 	// GlobalConfig is the loaded global configuration
 	GlobalConfig *GlobalConfig
+}
+
+// serviceFileNames are the filenames to look for in order of preference
+var serviceFileNames = []string{
+	"services.yaml",
+	"grund-services.yaml",
+	"services.yml",
+	"grund-services.yml",
 }
 
 // NewConfigResolver creates a new config resolver
@@ -63,20 +73,53 @@ func (r *ConfigResolver) ResolveServicesFile() (servicesPath string, orchestrati
 		return absPath, filepath.Dir(absPath), nil
 	}
 
-	// 3. Default: ~/.grund/services.yaml
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", "", fmt.Errorf("failed to get home directory: %w", err)
+	// 3. Search current directory and parent directories
+	if path, root, found := r.searchLocalFiles(); found {
+		return path, root, nil
 	}
 
-	grundDir := filepath.Join(home, ".grund")
+	// 4. Global config: ~/.grund/services.yaml (or GRUND_HOME)
+	grundDir, err := GetGrundHome()
+	if err != nil {
+		return "", "", fmt.Errorf("failed to get grund home directory: %w", err)
+	}
+
 	defaultPath := filepath.Join(grundDir, "services.yaml")
 
 	if _, err := os.Stat(defaultPath); err != nil {
-		return "", "", fmt.Errorf("services file not found at %s\n\nTo get started:\n  1. Create ~/.grund/services.yaml with your service registry\n  2. Or set GRUND_CONFIG environment variable\n  3. Or use --config flag", defaultPath)
+		return "", "", fmt.Errorf("services file not found\n\nSearched:\n  - Current directory and parents for: %v\n  - Global config at: %s\n\nTo get started:\n  1. Create services.yaml in your project root\n  2. Or create ~/.grund/services.yaml\n  3. Or set GRUND_CONFIG environment variable\n  4. Or use --config flag", serviceFileNames, defaultPath)
 	}
 
 	return defaultPath, grundDir, nil
+}
+
+// searchLocalFiles searches for service files in current and parent directories
+func (r *ConfigResolver) searchLocalFiles() (path string, root string, found bool) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", "", false
+	}
+
+	dir := cwd
+	for {
+		// Try each filename in current directory
+		for _, name := range serviceFileNames {
+			candidate := filepath.Join(dir, name)
+			if _, err := os.Stat(candidate); err == nil {
+				return candidate, dir, true
+			}
+		}
+
+		// Move to parent directory
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			// Reached root, stop searching
+			break
+		}
+		dir = parent
+	}
+
+	return "", "", false
 }
 
 // expandPath expands ~ to home directory

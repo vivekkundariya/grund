@@ -482,7 +482,9 @@ func (g *ComposeGeneratorImpl) addApplicationServices(compose *ComposeFile, serv
 func (g *ComposeGeneratorImpl) buildDependsOn(svc *service.Service) map[string]DependsOnCondition {
 	dependsOn := make(map[string]DependsOnCondition)
 
-	// Add infrastructure dependencies
+	// Add infrastructure dependencies only
+	// Service-to-service dependencies are NOT added here - services should handle
+	// reconnection logic themselves. This allows circular dependencies and parallel startup.
 	if svc.RequiresInfrastructure("postgres") {
 		dependsOn["postgres"] = DependsOnCondition{Condition: "service_healthy"}
 	}
@@ -494,11 +496,6 @@ func (g *ComposeGeneratorImpl) buildDependsOn(svc *service.Service) map[string]D
 	}
 	if svc.RequiresInfrastructure("localstack") {
 		dependsOn["localstack"] = DependsOnCondition{Condition: "service_healthy"}
-	}
-
-	// Add service dependencies
-	for _, dep := range svc.Dependencies.Services {
-		dependsOn[dep.String()] = DependsOnCondition{Condition: "service_healthy"}
 	}
 
 	if len(dependsOn) == 0 {

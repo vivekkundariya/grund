@@ -200,26 +200,25 @@ func TestUpCommandHandler_Handle_Success(t *testing.T) {
 		t.Fatalf("Expected 1 StartServices call, got %d", len(orchestrator.startCalls))
 	}
 
-	// Verify startup order: B should come before A (B has no deps, A depends on B)
-	startOrder := orchestrator.startCalls[0]
-	if len(startOrder) != 2 {
-		t.Fatalf("Expected 2 services to start, got %d", len(startOrder))
+	// Verify both services are started (order is not enforced - services start in parallel)
+	startedServices := orchestrator.startCalls[0]
+	if len(startedServices) != 2 {
+		t.Fatalf("Expected 2 services to start, got %d", len(startedServices))
 	}
 
-	// Find indices
-	bIdx := -1
-	aIdx := -1
-	for i, name := range startOrder {
-		if name == "service-b" {
-			bIdx = i
-		}
+	// Check both services are present (order doesn't matter)
+	hasA, hasB := false, false
+	for _, name := range startedServices {
 		if name == "service-a" {
-			aIdx = i
+			hasA = true
+		}
+		if name == "service-b" {
+			hasB = true
 		}
 	}
 
-	if bIdx >= aIdx {
-		t.Errorf("service-b should start before service-a, but got order: %v", startOrder)
+	if !hasA || !hasB {
+		t.Errorf("Expected both service-a and service-b to be started, got: %v", startedServices)
 	}
 }
 
@@ -247,6 +246,8 @@ func TestUpCommandHandler_Handle_ServiceNotFound(t *testing.T) {
 
 func TestUpCommandHandler_Handle_CircularDependency(t *testing.T) {
 	// Create circular dependency: A -> B -> C -> A
+	// Circular dependencies are now allowed - services start in parallel
+	// and handle reconnection themselves
 	svcC := createTestService("service-c", []string{"service-a"})
 	svcB := createTestService("service-b", []string{"service-c"})
 	svcA := createTestService("service-a", []string{"service-b"})
@@ -270,9 +271,20 @@ func TestUpCommandHandler_Handle_CircularDependency(t *testing.T) {
 		ServiceNames: []string{"service-a", "service-b", "service-c"},
 	}
 
+	// Circular dependencies should now succeed - services start in parallel
 	err := handler.Handle(context.Background(), cmd)
-	if err == nil {
-		t.Fatal("Expected error for circular dependency, got nil")
+	if err != nil {
+		t.Fatalf("Handle() should succeed with circular dependencies, got error: %v", err)
+	}
+
+	// Verify all services were started
+	if len(orchestrator.startCalls) != 1 {
+		t.Fatalf("Expected 1 StartServices call, got %d", len(orchestrator.startCalls))
+	}
+
+	startedServices := orchestrator.startCalls[0]
+	if len(startedServices) != 3 {
+		t.Fatalf("Expected 3 services to start, got %d", len(startedServices))
 	}
 }
 
@@ -318,13 +330,12 @@ func TestUpCommandHandler_Handle_InfraOnly(t *testing.T) {
 
 func TestUpCommandHandler_Handle_NoDeps(t *testing.T) {
 	// A depends on B, but we use NoDeps flag
-	svcB := createTestService("service-b", []string{})
+	// Since we no longer enforce dependency ordering, this should work
 	svcA := createTestService("service-a", []string{"service-b"})
 
 	repo := &mockServiceRepository{
 		services: map[service.ServiceName]*service.Service{
 			"service-a": svcA,
-			"service-b": svcB,
 		},
 	}
 	registry := &mockRegistryRepository{}
@@ -341,15 +352,20 @@ func TestUpCommandHandler_Handle_NoDeps(t *testing.T) {
 		NoDeps:       true,
 	}
 
-	// This should fail because service-b is not in the graph when building
-	// The current implementation loads all named services
+	// This should succeed - we no longer build dependency graphs
+	// Service-a will start and handle reconnection to service-b itself
 	err := handler.Handle(context.Background(), cmd)
-	// Note: The current implementation doesn't fully handle NoDeps
-	// It will fail at Build() since service-b dependency isn't in the graph
-	// This test documents the expected behavior
-	if err == nil {
-		// If it passes, NoDeps flag handling needs to be verified
-		t.Log("NoDeps flag allowed starting service-a without service-b in graph")
+	if err != nil {
+		t.Fatalf("Handle() should succeed with NoDeps, got error: %v", err)
+	}
+
+	// Verify service-a was started
+	if len(orchestrator.startCalls) != 1 {
+		t.Fatalf("Expected 1 StartServices call, got %d", len(orchestrator.startCalls))
+	}
+
+	if len(orchestrator.startCalls[0]) != 1 || orchestrator.startCalls[0][0] != "service-a" {
+		t.Errorf("Expected only service-a to start, got: %v", orchestrator.startCalls[0])
 	}
 }
 
@@ -382,7 +398,7 @@ func TestUpCommandHandler_Handle_ProvisioningFails(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error for provisioning failure, got nil")
 	}
-	if orchestrator.startCalls != nil && len(orchestrator.startCalls) > 0 {
+	if len(orchestrator.startCalls) > 0 {
 		t.Error("Services should not have started after provisioning failure")
 	}
 }

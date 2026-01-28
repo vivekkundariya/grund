@@ -202,6 +202,17 @@ func TestConfigResolver_ResolveServicesFile_NotFound(t *testing.T) {
 	os.Chdir(tmpDir)
 	defer os.Chdir(originalWd)
 
+	// Override GRUND_HOME to prevent finding global config
+	originalHome := os.Getenv(EnvGrundHome)
+	os.Setenv(EnvGrundHome, filepath.Join(tmpDir, "nonexistent-grund-home"))
+	defer func() {
+		if originalHome == "" {
+			os.Unsetenv(EnvGrundHome)
+		} else {
+			os.Setenv(EnvGrundHome, originalHome)
+		}
+	}()
+
 	resolver, _ := NewConfigResolver("")
 	_, _, err := resolver.ResolveServicesFile()
 
