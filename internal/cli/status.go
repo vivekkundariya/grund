@@ -35,7 +35,7 @@ var statusCmd = &cobra.Command{
 		t.SetOutputMirror(os.Stdout)
 		t.SetStyle(table.StyleRounded)
 
-		t.AppendHeader(table.Row{"Service", "Status"})
+		t.AppendHeader(table.Row{"Service", "Status", "URL"})
 
 		for _, s := range statuses {
 			var statusIcon string
@@ -53,9 +53,17 @@ var statusCmd = &cobra.Command{
 			}
 
 			statusText := fmt.Sprintf("%s %s", statusIcon, s.Status)
+
+			// Format URL - show "-" if not available or not running
+			url := "-"
+			if s.Endpoint != "" && s.Status == "running" {
+				url = text.FgCyan.Sprint(s.Endpoint)
+			}
+
 			t.AppendRow(table.Row{
 				s.Name,
 				statusColor.Sprint(statusText),
+				url,
 			})
 		}
 
