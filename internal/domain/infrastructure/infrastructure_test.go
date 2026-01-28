@@ -216,7 +216,7 @@ func TestAggregate_SNSTopics(t *testing.T) {
 	req2 := InfrastructureRequirements{
 		SNS: &SNSConfig{
 			Topics: []TopicConfig{
-				{Name: "topic-2", Subscriptions: []SubscriptionConfig{{Queue: "queue-1"}}},
+				{Name: "topic-2", Subscriptions: []SubscriptionConfig{{Protocol: "sqs", Endpoint: "${sqs.queue-1.arn}"}}},
 			},
 		},
 	}

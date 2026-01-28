@@ -165,7 +165,9 @@ type TopicConfigDTO struct {
 }
 
 type SubscriptionConfigDTO struct {
-	Queue string `yaml:"queue"`
+	Protocol   string            `yaml:"protocol"`
+	Endpoint   string            `yaml:"endpoint"`
+	Attributes map[string]string `yaml:"attributes,omitempty"`
 }
 
 type S3ConfigDTO struct {
@@ -288,7 +290,11 @@ func (r *ServiceRepositoryImpl) toInfrastructureRequirements(dto InfrastructureC
 		for _, t := range dto.SNS.Topics {
 			var subs []infrastructure.SubscriptionConfig
 			for _, s := range t.Subscriptions {
-				subs = append(subs, infrastructure.SubscriptionConfig{Queue: s.Queue})
+				subs = append(subs, infrastructure.SubscriptionConfig{
+					Protocol:   s.Protocol,
+					Endpoint:   s.Endpoint,
+					Attributes: s.Attributes,
+				})
 			}
 			topics = append(topics, infrastructure.TopicConfig{
 				Name:          t.Name,

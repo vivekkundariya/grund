@@ -9,6 +9,7 @@ import (
 	"github.com/vivekkundariya/grund/internal/application/ports"
 	"github.com/vivekkundariya/grund/internal/domain/infrastructure"
 	"github.com/vivekkundariya/grund/internal/domain/service"
+	"github.com/vivekkundariya/grund/internal/ui"
 	"gopkg.in/yaml.v3"
 )
 
@@ -78,6 +79,79 @@ type DependsOnCondition struct {
 	Condition string `yaml:"condition"`
 }
 
+// portAllocator tracks used host ports and assigns available ones
+type portAllocator struct {
+	usedPorts map[int]string // port -> service name that uses it
+}
+
+// newPortAllocator creates a port allocator with infrastructure ports pre-reserved
+func newPortAllocator() *portAllocator {
+	pa := &portAllocator{
+		usedPorts: make(map[int]string),
+	}
+	// Reserve standard infrastructure ports to prevent accidental conflicts
+	reservedPorts := map[int]string{
+		// Databases
+		5432:  "postgres",
+		3306:  "mysql",
+		27017: "mongodb",
+		6379:  "redis",
+		9042:  "cassandra",
+		7687:  "neo4j",
+		8529:  "arangodb",
+		// Message queues
+		5672:  "rabbitmq",
+		15672: "rabbitmq-management",
+		9092:  "kafka",
+		2181:  "zookeeper",
+		4222:  "nats",
+		// AWS LocalStack
+		4566: "localstack",
+		// Search
+		9200: "elasticsearch",
+		9300: "elasticsearch-transport",
+		7700: "meilisearch",
+		// Monitoring
+		9090: "prometheus",
+		3000: "grafana",
+		9411: "zipkin",
+		16686: "jaeger",
+		// Others
+		8500: "consul",
+		8200: "vault",
+		2379: "etcd",
+	}
+	for port, name := range reservedPorts {
+		pa.usedPorts[port] = name
+	}
+	return pa
+}
+
+// allocate returns an available host port for the given service and container port
+// If the container port is available, it uses that. Otherwise, it finds the next available.
+func (pa *portAllocator) allocate(serviceName string, containerPort int) (hostPort int, wasReassigned bool) {
+	// If the desired port is available, use it
+	if _, used := pa.usedPorts[containerPort]; !used {
+		pa.usedPorts[containerPort] = serviceName
+		return containerPort, false
+	}
+
+	// Find next available port starting from the container port
+	candidate := containerPort + 1
+	for {
+		if _, used := pa.usedPorts[candidate]; !used {
+			pa.usedPorts[candidate] = serviceName
+			return candidate, true
+		}
+		candidate++
+		// Safety limit to prevent infinite loop
+		if candidate > 65535 {
+			// Fall back to original port (will cause Docker error, but that's better than infinite loop)
+			return containerPort, false
+		}
+	}
+}
+
 // Generate generates a docker-compose.yaml file
 func (g *ComposeGeneratorImpl) Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (string, error) {
 	// Ensure directory exists
@@ -99,11 +173,14 @@ func (g *ComposeGeneratorImpl) Generate(services []*service.Service, infra infra
 	// Build environment context for variable resolution
 	envContext := g.buildEnvironmentContext(services, infra)
 
+	// Create port allocator to handle port conflicts
+	portAlloc := newPortAllocator()
+
 	// Add infrastructure services
 	g.addInfrastructureServices(compose, infra)
 
 	// Add application services
-	if err := g.addApplicationServices(compose, services, envContext); err != nil {
+	if err := g.addApplicationServices(compose, services, envContext, portAlloc); err != nil {
 		return "", err
 	}
 
@@ -305,7 +382,7 @@ func (g *ComposeGeneratorImpl) addInfrastructureServices(compose *ComposeFile, i
 	}
 }
 
-func (g *ComposeGeneratorImpl) addApplicationServices(compose *ComposeFile, services []*service.Service, envContext ports.EnvironmentContext) error {
+func (g *ComposeGeneratorImpl) addApplicationServices(compose *ComposeFile, services []*service.Service, envContext ports.EnvironmentContext, portAlloc *portAllocator) error {
 	for _, svc := range services {
 		// Build self context for this service
 		selfContext := envContext
@@ -365,8 +442,13 @@ func (g *ComposeGeneratorImpl) addApplicationServices(compose *ComposeFile, serv
 			}
 		}
 
-		// Set ports
-		composeService.Ports = []string{fmt.Sprintf("%d:%d", svc.Port.Value(), svc.Port.Value())}
+		// Set ports with conflict detection
+		containerPort := svc.Port.Value()
+		hostPort, wasReassigned := portAlloc.allocate(svc.Name, containerPort)
+		if wasReassigned {
+			ui.Warnf("Port conflict: %s uses container port %d, assigned host port %d", svc.Name, containerPort, hostPort)
+		}
+		composeService.Ports = []string{fmt.Sprintf("%d:%d", hostPort, containerPort)}
 
 		// Set healthcheck
 		if svc.Health.Endpoint != "" {

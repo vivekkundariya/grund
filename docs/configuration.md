@@ -121,7 +121,11 @@ requires:
       topics:
         - name: <topic-name>
           subscriptions:
-            - queue: <queue-name>
+            - protocol: sqs
+              endpoint: "${sqs.<queue-name>.arn}"
+              attributes:
+                FilterPolicy: '<json-filter>'
+                FilterPolicyScope: <MessageBody|MessageAttributes>
 
     s3:
       buckets:
@@ -235,10 +239,35 @@ infrastructure:
     topics:
       - name: order-events
         subscriptions:
-          - queue: orders      # Subscribe SQS queue to topic
-          - queue: analytics
+          # Subscribe SQS queue to topic with filter policy
+          - protocol: sqs
+            endpoint: "${sqs.orders.arn}"
+            attributes:
+              FilterPolicy: '{"event_type":["ORDER_CREATED","ORDER_UPDATED"]}'
+              FilterPolicyScope: MessageBody
+
+          # Simple subscription without filters
+          - protocol: sqs
+            endpoint: "${sqs.analytics.arn}"
+
       - name: user-events
 ```
+
+**Subscription Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `protocol` | string | Yes | Subscription protocol (`sqs`) |
+| `endpoint` | string | Yes | Queue ARN using template syntax |
+| `attributes` | map | No | AWS subscription attributes |
+
+**Common Attributes:**
+
+| Attribute | Description |
+|-----------|-------------|
+| `FilterPolicy` | JSON filter rules for message routing |
+| `FilterPolicyScope` | `MessageBody` or `MessageAttributes` |
+| `RawMessageDelivery` | `"true"` to skip SNS envelope |
 
 ##### S3 (Simple Storage Service)
 
@@ -326,7 +355,8 @@ requires:
       topics:
         - name: order-events
           subscriptions:
-            - queue: order-confirmations
+            - protocol: sqs
+              endpoint: "${sqs.order-confirmations.arn}"
 
 env:
   APP_ENV: development

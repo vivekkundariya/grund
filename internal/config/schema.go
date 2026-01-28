@@ -85,7 +85,9 @@ type TopicConfig struct {
 }
 
 type SubscriptionConfig struct {
-	Queue string `yaml:"queue"`
+	Protocol   string            `yaml:"protocol"`
+	Endpoint   string            `yaml:"endpoint"`
+	Attributes map[string]string `yaml:"attributes,omitempty"`
 }
 
 type S3Config struct {
