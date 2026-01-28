@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 
 	"github.com/vivekkundariya/grund/internal/application/ports"
+	"github.com/vivekkundariya/grund/internal/config"
 	"github.com/vivekkundariya/grund/internal/domain/service"
 	"github.com/vivekkundariya/grund/internal/ui"
 )
@@ -288,6 +290,30 @@ func (d *DockerOrchestrator) GetLogs(ctx context.Context, name service.ServiceNa
 }
 
 // GetComposeFilePath returns the path to the generated compose file
+// Files are stored in ~/.grund/tmp/<project-name>/ for easy cleanup
+// Project name is derived from the orchestration root directory name
 func GetComposeFilePath(orchestrationRoot string) string {
-	return filepath.Join(orchestrationRoot, "docker-compose.generated.yaml")
+	grundHome, err := config.GetGrundHome()
+	if err != nil {
+		// Fallback to orchestration root if we can't get grund home
+		return filepath.Join(orchestrationRoot, "docker-compose.generated.yaml")
+	}
+
+	// Get project name from orchestration root directory
+	absRoot, err := filepath.Abs(orchestrationRoot)
+	if err != nil {
+		return filepath.Join(orchestrationRoot, "docker-compose.generated.yaml")
+	}
+	projectName := filepath.Base(absRoot)
+
+	// Create project-specific tmp directory
+	projectTmpDir := filepath.Join(grundHome, "tmp", projectName)
+
+	// Ensure project tmp directory exists
+	if err := os.MkdirAll(projectTmpDir, 0755); err != nil {
+		// Fallback to orchestration root if we can't create tmp dir
+		return filepath.Join(orchestrationRoot, "docker-compose.generated.yaml")
+	}
+
+	return filepath.Join(projectTmpDir, "docker-compose.generated.yaml")
 }

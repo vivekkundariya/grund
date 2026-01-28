@@ -288,6 +288,49 @@ func TestUpCommandHandler_Handle_CircularDependency(t *testing.T) {
 	}
 }
 
+func TestUpCommandHandler_Handle_TransitiveDependencies(t *testing.T) {
+	// A depends on B, B depends on C
+	// Running `grund up service-a` should load all three
+	svcC := createTestService("service-c", []string{})
+	svcB := createTestService("service-b", []string{"service-c"})
+	svcA := createTestService("service-a", []string{"service-b"})
+
+	repo := &mockServiceRepository{
+		services: map[service.ServiceName]*service.Service{
+			"service-a": svcA,
+			"service-b": svcB,
+			"service-c": svcC,
+		},
+	}
+	registry := &mockRegistryRepository{}
+	orchestrator := &mockOrchestrator{}
+	provisioner := &mockProvisioner{}
+	composeGen := &mockComposeGenerator{}
+	healthChecker := &mockHealthChecker{}
+
+	handler := NewUpCommandHandler(repo, registry, orchestrator, provisioner, composeGen, healthChecker)
+
+	// Only request service-a, but B and C should be loaded as dependencies
+	cmd := UpCommand{
+		ServiceNames: []string{"service-a"},
+	}
+
+	err := handler.Handle(context.Background(), cmd)
+	if err != nil {
+		t.Fatalf("Handle() returned error: %v", err)
+	}
+
+	// Verify all three services were started (transitive deps loaded)
+	if len(orchestrator.startCalls) != 1 {
+		t.Fatalf("Expected 1 StartServices call, got %d", len(orchestrator.startCalls))
+	}
+
+	startedServices := orchestrator.startCalls[0]
+	if len(startedServices) != 3 {
+		t.Fatalf("Expected 3 services (including transitive deps), got %d: %v", len(startedServices), startedServices)
+	}
+}
+
 func TestUpCommandHandler_Handle_InfraOnly(t *testing.T) {
 	svc := createTestService("service-a", []string{})
 	svc.Dependencies.Infrastructure = infrastructure.InfrastructureRequirements{
