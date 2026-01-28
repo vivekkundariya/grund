@@ -102,6 +102,7 @@ func init() {
 	rootCmd.AddCommand(resetCmd)
 	rootCmd.AddCommand(configCmd)
 	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(secretsCmd)
 	rootCmd.AddCommand(newSetupCmd())
 }
 

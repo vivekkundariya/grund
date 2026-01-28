@@ -86,11 +86,26 @@ func (r *ServiceRepositoryImpl) Save(svc *service.Service) error {
 // ServiceConfigDTO is the DTO for YAML serialization
 // This separates infrastructure concerns from domain
 type ServiceConfigDTO struct {
-	Version  string                `yaml:"version"`
-	Service  ServiceInfoDTO         `yaml:"service"`
-	Requires RequirementsDTO        `yaml:"requires"`
-	Env      map[string]string     `yaml:"env"`
-	EnvRefs  map[string]string     `yaml:"env_refs"`
+	Version  string                       `yaml:"version"`
+	Service  ServiceInfoDTO               `yaml:"service"`
+	Requires RequirementsDTO              `yaml:"requires"`
+	Env      map[string]string            `yaml:"env"`
+	EnvRefs  map[string]string            `yaml:"env_refs"`
+	Secrets  map[string]SecretConfigDTO   `yaml:"secrets,omitempty"`
+}
+
+// SecretConfigDTO is the DTO for secret configuration
+type SecretConfigDTO struct {
+	Description string `yaml:"description"`
+	Required    *bool  `yaml:"required,omitempty"` // nil defaults to true
+}
+
+// IsRequired returns true if the secret is required (default: true)
+func (s SecretConfigDTO) IsRequired() bool {
+	if s.Required == nil {
+		return true
+	}
+	return *s.Required
 }
 
 type ServiceInfoDTO struct {
@@ -233,9 +248,19 @@ func (r *ServiceRepositoryImpl) toDomainService(dto ServiceConfigDTO, name servi
 		Infrastructure: infraReqs,
 	}
 
+	// Convert secrets
+	secrets := make(map[string]service.SecretRequirement)
+	for name, secretDTO := range dto.Secrets {
+		secrets[name] = service.SecretRequirement{
+			Description: secretDTO.Description,
+			Required:    secretDTO.IsRequired(),
+		}
+	}
+
 	env := service.Environment{
 		Variables:  dto.Env,
 		References: dto.EnvRefs,
+		Secrets:    secrets,
 	}
 
 	svc := &service.Service{
@@ -319,6 +344,19 @@ func (r *ServiceRepositoryImpl) toInfrastructureRequirements(dto InfrastructureC
 }
 
 func (r *ServiceRepositoryImpl) toConfigDTO(svc *service.Service) ServiceConfigDTO {
+	// Convert secrets
+	var secretsDTO map[string]SecretConfigDTO
+	if len(svc.Environment.Secrets) > 0 {
+		secretsDTO = make(map[string]SecretConfigDTO)
+		for name, secret := range svc.Environment.Secrets {
+			required := secret.Required
+			secretsDTO[name] = SecretConfigDTO{
+				Description: secret.Description,
+				Required:    &required,
+			}
+		}
+	}
+
 	dto := ServiceConfigDTO{
 		Version: "1",
 		Service: ServiceInfoDTO{
@@ -337,6 +375,7 @@ func (r *ServiceRepositoryImpl) toConfigDTO(svc *service.Service) ServiceConfigD
 		},
 		Env:     svc.Environment.Variables,
 		EnvRefs: svc.Environment.References,
+		Secrets: secretsDTO,
 	}
 
 	for i, dep := range svc.Dependencies.Services {

@@ -125,15 +125,15 @@ services:
 
 ## Implementation Files
 
-| File | Change |
-|:-----|:-------|
-| `internal/config/schema.go` | Add `Secrets map[string]SecretConfig` to `ServiceConfig` |
-| `internal/domain/infrastructure/` | Add `SecretRequirement` domain type |
-| `internal/infrastructure/generator/compose_generator.go` | Inject resolved secrets into environment |
-| `internal/infrastructure/generator/secrets_loader.go` | New: load and resolve secrets |
-| `internal/cli/secrets.go` | New: `secrets list` and `secrets init` commands |
-| `internal/cli/up.go` | Add secrets validation before starting |
-| `internal/cli/root.go` | Register secrets command |
+| File                                                     | Change                                                   |
+|:---------------------------------------------------------|:---------------------------------------------------------|
+| `internal/config/schema.go`                              | Add `Secrets map[string]SecretConfig` to `ServiceConfig` |
+| `internal/domain/infrastructure/`                        | Add `SecretRequirement` domain type                      |
+| `internal/infrastructure/generator/compose_generator.go` | Inject resolved secrets into environment                 |
+| `internal/infrastructure/generator/secrets_loader.go`    | New: load and resolve secrets                            |
+| `internal/cli/secrets.go`                                | New: `secrets list` and `secrets init` commands          |
+| `internal/cli/up.go`                                     | Add secrets validation before starting                   |
+| `internal/cli/root.go`                                   | Register secrets command                                 |
 
 ## Edge Cases
 

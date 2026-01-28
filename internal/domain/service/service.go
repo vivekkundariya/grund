@@ -82,8 +82,15 @@ func (n ServiceName) String() string {
 
 // Environment represents environment variables
 type Environment struct {
-	Variables map[string]string
+	Variables  map[string]string
 	References map[string]string
+	Secrets    map[string]SecretRequirement
+}
+
+// SecretRequirement defines a secret required by the service
+type SecretRequirement struct {
+	Description string
+	Required    bool // already resolved from config (defaults applied)
 }
 
 // Validate validates the service configuration

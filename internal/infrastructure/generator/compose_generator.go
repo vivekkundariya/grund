@@ -15,15 +15,17 @@ import (
 
 // ComposeGeneratorImpl implements ComposeGenerator
 type ComposeGeneratorImpl struct {
-	outputPath  string
-	envResolver ports.EnvironmentResolver
+	outputPath    string
+	envResolver   ports.EnvironmentResolver
+	secretsLoader *SecretsLoader
 }
 
 // NewComposeGenerator creates a new compose generator
 func NewComposeGenerator(outputPath string) ports.ComposeGenerator {
 	return &ComposeGeneratorImpl{
-		outputPath:  outputPath,
-		envResolver: NewEnvironmentResolver(),
+		outputPath:    outputPath,
+		envResolver:   NewEnvironmentResolver(),
+		secretsLoader: NewSecretsLoader(),
 	}
 }
 
@@ -421,6 +423,17 @@ func (g *ComposeGeneratorImpl) addApplicationServices(compose *ComposeFile, serv
 			resolvedEnv["AWS_ACCESS_KEY_ID"] = selfContext.LocalStack.AccessKeyID
 			resolvedEnv["AWS_SECRET_ACCESS_KEY"] = selfContext.LocalStack.SecretAccessKey
 			resolvedEnv["AWS_ACCOUNT_ID"] = selfContext.LocalStack.AccountID
+		}
+
+		// Add resolved secrets
+		if len(svc.Environment.Secrets) > 0 {
+			secrets, err := g.secretsLoader.ResolveSecrets(svc)
+			if err != nil {
+				return fmt.Errorf("failed to resolve secrets for %s: %w", svc.Name, err)
+			}
+			for k, v := range secrets {
+				resolvedEnv[k] = v
+			}
 		}
 
 		// Build depends_on with conditions

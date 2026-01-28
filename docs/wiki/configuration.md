@@ -9,6 +9,7 @@ This document describes all configuration files used by Grund.
 | `services.yaml` | Orchestration repo root | Service registry - lists all services |
 | `grund.yaml` | Each service directory | Service configuration |
 | `config.yaml` | `~/.grund/config.yaml` | Global user settings |
+| `secrets.env` | `~/.grund/secrets.env` | Secret values (API keys, etc.) |
 | `docker-compose.generated.yaml` | Orchestration repo root | Auto-generated, do not edit |
 
 ---
@@ -318,6 +319,42 @@ env_refs:
   AUTH_SERVICE_URL: "http://${auth-service.host}:${auth-service.port}"
 ```
 
+#### Secrets (`secrets`)
+
+Declare secrets required by the service. Values are loaded from `~/.grund/secrets.env` or shell environment.
+
+```yaml
+secrets:
+  OPENAI_API_KEY:
+    description: "OpenAI API key for embeddings"
+    required: true
+  STRIPE_SECRET_KEY:
+    description: "Stripe secret key for payments"
+    required: true
+  ANALYTICS_KEY:
+    description: "Mixpanel key for tracking"
+    required: false  # Optional secrets don't block startup
+```
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `description` | string | No | | Human-readable description |
+| `required` | boolean | No | `true` | Fail startup if missing |
+
+**Secret Resolution Order** (highest priority first):
+1. `~/.grund/secrets.env` file
+2. Shell environment variables
+
+**Managing Secrets:**
+
+```bash
+# List secrets and their status
+grund secrets list user-service
+
+# Generate template for missing secrets
+grund secrets init user-service
+```
+
 ### Complete Example
 
 ```yaml
@@ -369,7 +406,43 @@ env_refs:
   ORDER_EVENTS_TOPIC_ARN: "${sns.order-events.arn}"
   USER_SERVICE_URL: "http://${user-service.host}:${user-service.port}"
   NOTIFICATION_SERVICE_URL: "http://${notification-service.host}:${notification-service.port}"
+
+secrets:
+  STRIPE_SECRET_KEY:
+    description: "Stripe API key for payment processing"
+    required: true
 ```
+
+---
+
+## ~/.grund/secrets.env (Secrets File)
+
+Store secret values that should not be committed to version control.
+
+### Location
+
+`~/.grund/secrets.env`
+
+### Format
+
+```bash
+# Grund secrets file
+OPENAI_API_KEY=sk-xxxxxxxxxxxxx
+STRIPE_SECRET_KEY=sk_test_xxxxxxxxxxxxx
+ANALYTICS_KEY=mp_xxxxxxxxxxxxx
+```
+
+### Usage
+
+1. **Generate template**: `grund secrets init <service>` creates placeholders for missing secrets
+2. **Check status**: `grund secrets list <service>` shows which secrets are found/missing
+3. **Validation**: `grund up` fails fast if required secrets are missing
+
+### Best Practices
+
+- Never commit this file to version control
+- Use descriptive comments for each secret
+- Share a `secrets.env.example` template with your team (values redacted)
 
 ---
 

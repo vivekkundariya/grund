@@ -366,6 +366,54 @@ grund add s3 --bucket uploads --bucket documents
 
 ---
 
+### `grund secrets`
+
+Manage secrets required by services.
+
+**Subcommands:**
+
+#### `grund secrets list <service...>`
+
+Show all secrets required by the specified services and their dependencies.
+
+```bash
+$ grund secrets list user-service
+
+Secrets for user-service (and dependencies):
+
+╭──────────────────────┬───────────────┬─────────────────────────────────╮
+│ Secret               │ Status        │ Description                     │
+├──────────────────────┼───────────────┼─────────────────────────────────┤
+│ OPENAI_API_KEY       │ ✓ found (file)│ OpenAI API key for embeddings   │
+│ STRIPE_SECRET_KEY    │ ✗ missing     │ Stripe secret key for payments  │
+│ ANALYTICS_KEY        │ ○ optional    │ Mixpanel key for tracking       │
+╰──────────────────────┴───────────────┴─────────────────────────────────╯
+
+Source: ~/.grund/secrets.env (3 keys loaded)
+
+Missing required secrets: 1
+Run 'grund secrets init' to generate a template.
+```
+
+#### `grund secrets init <service...>`
+
+Generate `~/.grund/secrets.env` with placeholders for missing secrets.
+
+```bash
+$ grund secrets init user-service
+
+Created ~/.grund/secrets.env with 2 placeholders:
+
+  OPENAI_API_KEY
+  STRIPE_SECRET_KEY
+
+Edit the file and add your secret values.
+```
+
+If the file already exists, only missing secrets are appended. Existing values are preserved.
+
+---
+
 ## Exit Codes
 
 | Code | Meaning |
