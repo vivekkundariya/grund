@@ -6,17 +6,21 @@ This document describes all configuration files used by Grund.
 
 | File | Location | Purpose |
 |------|----------|---------|
-| `services.yaml` | Orchestration repo root | Service registry - lists all services |
+| `services.yaml` | `~/.grund/services.yaml` | Service registry - lists all services |
 | `grund.yaml` | Each service directory | Service configuration |
 | `config.yaml` | `~/.grund/config.yaml` | Global user settings |
 | `secrets.env` | `~/.grund/secrets.env` | Secret values (API keys, etc.) |
-| `docker-compose.generated.yaml` | Orchestration repo root | Auto-generated, do not edit |
+| `docker-compose.generated.yaml` | `~/.grund/` | Auto-generated, do not edit |
 
 ---
 
 ## services.yaml (Service Registry)
 
 The service registry maps service names to their repository locations.
+
+**Default location:** `~/.grund/services.yaml`
+
+Override with `GRUND_CONFIG` environment variable or `--config` flag.
 
 ### Schema
 

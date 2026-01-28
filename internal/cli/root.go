@@ -21,20 +21,19 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "grund",
 	Short: "Grund - Local development orchestration tool",
-	Long: `Grund is a CLI tool that enables developers to selectively spin up 
+	Long: `Grund is a CLI tool that enables developers to selectively spin up
 services and their dependencies with a single command.
 
-Configuration Priority:
-  1. --config flag (highest priority)
+Configuration:
+  1. --config flag (explicit path)
   2. GRUND_CONFIG environment variable
-  3. Local services.yaml in current/parent directory
-  4. Global config default (~/.grund/config.yaml)
+  3. Default: ~/.grund/services.yaml
 
 Examples:
   grund up service-a service-b    Start services with dependencies
   grund down                      Stop all services
   grund status                    Show service status
-  grund --config=/path/to/services.yaml up myservice`,
+  grund secrets list myservice    Check required secrets`,
 	Version: "1.0.0",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Set verbose mode on logger
