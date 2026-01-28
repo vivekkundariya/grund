@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/vivekkundariya/grund/internal/application/ports"
-	"github.com/vivekkundariya/grund/internal/domain/dependency"
 	"github.com/vivekkundariya/grund/internal/domain/infrastructure"
 	"github.com/vivekkundariya/grund/internal/domain/service"
 	"github.com/vivekkundariya/grund/internal/ui"
@@ -55,44 +54,29 @@ func NewUpCommandHandler(
 func (h *UpCommandHandler) Handle(ctx context.Context, cmd UpCommand) error {
 	ui.Infof("Starting services: %s", strings.Join(cmd.ServiceNames, ", "))
 
-	// 1. Load services
+	// 1. Load services (and their transitive dependencies unless --no-deps)
 	ui.Step("Loading service configurations...")
-	services, err := h.loadServices(cmd.ServiceNames)
+	var services []*service.Service
+	var err error
+	if cmd.NoDeps {
+		services, err = h.loadServices(cmd.ServiceNames)
+	} else {
+		services, err = h.loadServicesWithDependencies(cmd.ServiceNames)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to load services: %w", err)
 	}
 	ui.Debug("Loaded %d service(s)", len(services))
 
-	// 2. Build dependency graph
-	ui.Step("Resolving dependencies...")
-	graph := dependency.NewGraph()
-	for _, svc := range services {
-		graph.AddService(svc)
+	// 2. Build service names list from all loaded services
+	// Note: We no longer enforce startup order between services.
+	// Services start in parallel after infrastructure is ready.
+	// They should handle reconnection to other services themselves.
+	serviceNames := make([]service.ServiceName, len(services))
+	for i, svc := range services {
+		serviceNames[i] = service.ServiceName(svc.Name)
 	}
-	if err := graph.Build(); err != nil {
-		return fmt.Errorf("failed to build dependency graph: %w", err)
-	}
-
-	// 3. Check for circular dependencies
-	for _, svcName := range cmd.ServiceNames {
-		if cycle, err := graph.DetectCycle(service.ServiceName(svcName)); err != nil {
-			return fmt.Errorf("circular dependency: %w", err)
-		} else if len(cycle) > 0 {
-			return fmt.Errorf("circular dependency detected")
-		}
-	}
-
-	// 4. Resolve startup order
-	serviceNames := make([]service.ServiceName, len(cmd.ServiceNames))
-	for i, name := range cmd.ServiceNames {
-		serviceNames[i] = service.ServiceName(name)
-	}
-
-	startupOrder, err := graph.TopologicalSort(serviceNames)
-	if err != nil {
-		return fmt.Errorf("failed to determine startup order: %w", err)
-	}
-	ui.Debug("Startup order: %v", startupOrder)
+	ui.Debug("Services to start: %v", serviceNames)
 
 	// 5. Aggregate infrastructure requirements
 	infraReqs := h.aggregateInfrastructure(services)
@@ -125,10 +109,10 @@ func (h *UpCommandHandler) Handle(ctx context.Context, cmd UpCommand) error {
 		ui.Successf("AWS resources provisioned")
 	}
 
-	// 9. Start services in order
+	// 9. Start services in parallel (no ordering enforced)
 	if !cmd.InfraOnly {
 		ui.Step("Starting application services...")
-		if err := h.startServices(ctx, startupOrder); err != nil {
+		if err := h.startServices(ctx, serviceNames); err != nil {
 			return fmt.Errorf("failed to start services: %w", err)
 		}
 		ui.Successf("All services started successfully")
@@ -139,6 +123,7 @@ func (h *UpCommandHandler) Handle(ctx context.Context, cmd UpCommand) error {
 	return nil
 }
 
+// loadServices loads only the explicitly requested services (no dependencies)
 func (h *UpCommandHandler) loadServices(names []string) ([]*service.Service, error) {
 	var services []*service.Service
 	for _, name := range names {
@@ -148,6 +133,68 @@ func (h *UpCommandHandler) loadServices(names []string) ([]*service.Service, err
 		}
 		services = append(services, svc)
 	}
+	return services, nil
+}
+
+// loadServicesWithDependencies loads the requested services and all their transitive dependencies
+// This handles circular dependencies by tracking visited services
+func (h *UpCommandHandler) loadServicesWithDependencies(names []string) ([]*service.Service, error) {
+	loaded := make(map[string]*service.Service)
+	var loadOrder []string // Track order for consistent output
+
+	var loadRecursive func(name string) error
+	loadRecursive = func(name string) error {
+		// Skip if already loaded (handles circular dependencies)
+		if _, exists := loaded[name]; exists {
+			return nil
+		}
+
+		svc, err := h.serviceRepo.FindByName(service.ServiceName(name))
+		if err != nil {
+			return fmt.Errorf("service %s: %w", name, err)
+		}
+
+		loaded[name] = svc
+		loadOrder = append(loadOrder, name)
+
+		// Recursively load dependencies
+		for _, dep := range svc.Dependencies.Services {
+			if err := loadRecursive(dep.String()); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	}
+
+	// Load each requested service and its dependencies
+	for _, name := range names {
+		if err := loadRecursive(name); err != nil {
+			return nil, err
+		}
+	}
+
+	// Build result in load order
+	services := make([]*service.Service, 0, len(loaded))
+	for _, name := range loadOrder {
+		services = append(services, loaded[name])
+	}
+
+	// Log if we loaded additional dependencies
+	if len(services) > len(names) {
+		var deps []string
+		nameSet := make(map[string]bool)
+		for _, n := range names {
+			nameSet[n] = true
+		}
+		for _, svc := range services {
+			if !nameSet[svc.Name] {
+				deps = append(deps, svc.Name)
+			}
+		}
+		ui.Infof("Also loading dependencies: %s", strings.Join(deps, ", "))
+	}
+
 	return services, nil
 }
 

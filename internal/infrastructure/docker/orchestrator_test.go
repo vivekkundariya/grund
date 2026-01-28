@@ -1,7 +1,11 @@
 package docker
 
 import (
+	"path/filepath"
+	"strings"
 	"testing"
+
+	"github.com/vivekkundariya/grund/internal/config"
 )
 
 func TestNewDockerOrchestrator(t *testing.T) {
@@ -19,33 +23,40 @@ func TestNewDockerOrchestrator(t *testing.T) {
 }
 
 func TestGetComposeFilePath(t *testing.T) {
+	// GetComposeFilePath should return path in ~/.grund/tmp/<project-name>/
+	grundHome, err := config.GetGrundHome()
+	if err != nil {
+		t.Fatalf("Failed to get grund home: %v", err)
+	}
+
 	tests := []struct {
-		name            string
+		name              string
 		orchestrationRoot string
-		expected        string
+		expectedProject   string
 	}{
 		{
 			name:              "root directory",
 			orchestrationRoot: "/project",
-			expected:          "/project/docker-compose.generated.yaml",
+			expectedProject:   "project",
 		},
 		{
 			name:              "nested directory",
 			orchestrationRoot: "/home/user/projects/myapp",
-			expected:          "/home/user/projects/myapp/docker-compose.generated.yaml",
-		},
-		{
-			name:              "relative path",
-			orchestrationRoot: ".",
-			expected:          "docker-compose.generated.yaml",
+			expectedProject:   "myapp",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetComposeFilePath(tt.orchestrationRoot)
-			if result != tt.expected {
-				t.Errorf("GetComposeFilePath(%q) = %q, want %q", tt.orchestrationRoot, result, tt.expected)
+			expectedPath := filepath.Join(grundHome, "tmp", tt.expectedProject, "docker-compose.generated.yaml")
+
+			if result != expectedPath {
+				t.Errorf("GetComposeFilePath(%q) = %q, want %q", tt.orchestrationRoot, result, expectedPath)
+			}
+			// Verify it's in the tmp directory with project name
+			if !strings.Contains(result, filepath.Join("tmp", tt.expectedProject)) {
+				t.Errorf("GetComposeFilePath should return path in tmp/<project>, got %q", result)
 			}
 		})
 	}
