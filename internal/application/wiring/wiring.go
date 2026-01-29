@@ -75,11 +75,21 @@ func NewContainerWithConfig(orchestrationRoot, servicesPath string, configResolv
 		localstackEndpoint = configResolver.GetLocalStackEndpoint()
 	}
 
+	// Get grund tmp directory for compose file generation
+	grundTmpDir, err := docker.GetGrundTmpDir()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get grund tmp directory: %w", err)
+	}
+
 	// Initialize infrastructure adapters
-	composeFile := docker.GetComposeFilePath(orchestrationRoot)
-	projectName := docker.GetProjectName(orchestrationRoot)
-	orchestrator := docker.NewDockerOrchestrator(composeFile, orchestrationRoot, projectName)
+	orchestrator := docker.NewDockerOrchestrator(orchestrationRoot)
 	healthChecker := docker.NewHTTPHealthChecker()
+
+	// Discover existing compose files and set them on the orchestrator
+	// This allows status, logs, etc. to work without running 'up' first
+	if existingFiles, err := docker.DiscoverComposeFiles(); err == nil {
+		orchestrator.SetComposeFiles(existingFiles.AllPaths())
+	}
 
 	// Initialize provisioners
 	postgresProvisioner := docker.NewPostgresProvisioner()
@@ -94,7 +104,7 @@ func NewContainerWithConfig(orchestrationRoot, servicesPath string, configResolv
 	)
 
 	// Initialize generators
-	composeGenerator := generator.NewComposeGenerator(composeFile)
+	composeGenerator := generator.NewComposeGenerator(grundTmpDir)
 	envResolver := generator.NewEnvironmentResolver()
 
 	// Initialize command handlers

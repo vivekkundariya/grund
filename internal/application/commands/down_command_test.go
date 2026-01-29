@@ -43,6 +43,10 @@ func (m *mockDownOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]por
 	return nil, nil
 }
 
+func (m *mockDownOrchestrator) SetComposeFiles(files []string) {
+	// no-op for tests
+}
+
 func TestDownCommandHandler_Handle_Success(t *testing.T) {
 	orchestrator := &mockDownOrchestrator{}
 	handler := NewDownCommandHandler(orchestrator)

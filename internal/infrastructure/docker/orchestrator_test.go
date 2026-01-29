@@ -2,14 +2,13 @@ package docker
 
 import (
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/vivekkundariya/grund/internal/config"
 )
 
 func TestNewDockerOrchestrator(t *testing.T) {
-	orchestrator := NewDockerOrchestrator("/path/to/docker-compose.yaml", "/working/dir", "test-project")
+	orchestrator := NewDockerOrchestrator("/working/dir")
 
 	if orchestrator == nil {
 		t.Fatal("NewDockerOrchestrator() returned nil")
@@ -21,125 +20,116 @@ func TestNewDockerOrchestrator(t *testing.T) {
 		t.Error("NewDockerOrchestrator() should return *DockerOrchestrator")
 	}
 
-	if do.projectName != "test-project" {
-		t.Errorf("Expected projectName 'test-project', got %q", do.projectName)
+	if do.projectName != ProjectName {
+		t.Errorf("Expected projectName %q, got %q", ProjectName, do.projectName)
 	}
 }
 
-func TestGetComposeFilePath(t *testing.T) {
-	// GetComposeFilePath should return path in ~/.grund/tmp/<sanitized-project-name>/
+func TestGetGrundTmpDir(t *testing.T) {
+	grundHome, err := config.GetGrundHome()
+	if err != nil {
+		t.Fatalf("Failed to get grund home: %v", err)
+	}
+
+	tmpDir, err := GetGrundTmpDir()
+	if err != nil {
+		t.Fatalf("GetGrundTmpDir() returned error: %v", err)
+	}
+
+	expected := filepath.Join(grundHome, "tmp")
+	if tmpDir != expected {
+		t.Errorf("GetGrundTmpDir() = %q, want %q", tmpDir, expected)
+	}
+}
+
+func TestGetInfrastructureComposePath(t *testing.T) {
+	grundHome, err := config.GetGrundHome()
+	if err != nil {
+		t.Fatalf("Failed to get grund home: %v", err)
+	}
+
+	path, err := GetInfrastructureComposePath()
+	if err != nil {
+		t.Fatalf("GetInfrastructureComposePath() returned error: %v", err)
+	}
+
+	expected := filepath.Join(grundHome, "tmp", "infrastructure", "docker-compose.yaml")
+	if path != expected {
+		t.Errorf("GetInfrastructureComposePath() = %q, want %q", path, expected)
+	}
+}
+
+func TestGetServiceComposePath(t *testing.T) {
 	grundHome, err := config.GetGrundHome()
 	if err != nil {
 		t.Fatalf("Failed to get grund home: %v", err)
 	}
 
 	tests := []struct {
-		name              string
-		orchestrationRoot string
-		expectedProject   string
+		serviceName string
+		expected    string
 	}{
-		{
-			name:              "root directory",
-			orchestrationRoot: "/project",
-			expectedProject:   "project",
-		},
-		{
-			name:              "nested directory",
-			orchestrationRoot: "/home/user/projects/myapp",
-			expectedProject:   "myapp",
-		},
-		{
-			name:              "hidden directory sanitized",
-			orchestrationRoot: "/home/user/.grund",
-			expectedProject:   "grund",
-		},
-		{
-			name:              "directory with dots sanitized",
-			orchestrationRoot: "/home/user/my.project",
-			expectedProject:   "my-project",
-		},
+		{"mars", filepath.Join(grundHome, "tmp", "mars", "docker-compose.yaml")},
+		{"shuttle", filepath.Join(grundHome, "tmp", "shuttle", "docker-compose.yaml")},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := GetComposeFilePath(tt.orchestrationRoot)
-			expectedPath := filepath.Join(grundHome, "tmp", tt.expectedProject, "docker-compose.generated.yaml")
-
-			if result != expectedPath {
-				t.Errorf("GetComposeFilePath(%q) = %q, want %q", tt.orchestrationRoot, result, expectedPath)
+		t.Run(tt.serviceName, func(t *testing.T) {
+			path, err := GetServiceComposePath(tt.serviceName)
+			if err != nil {
+				t.Fatalf("GetServiceComposePath(%q) returned error: %v", tt.serviceName, err)
 			}
-			// Verify it's in the tmp directory with project name
-			if !strings.Contains(result, filepath.Join("tmp", tt.expectedProject)) {
-				t.Errorf("GetComposeFilePath should return path in tmp/<project>, got %q", result)
+			if path != tt.expected {
+				t.Errorf("GetServiceComposePath(%q) = %q, want %q", tt.serviceName, path, tt.expected)
 			}
 		})
 	}
 }
 
-func TestDockerOrchestrator_CommandConstruction(t *testing.T) {
-	// Test that the orchestrator is constructed with correct paths
-	composeFile := "/test/docker-compose.yaml"
-	workingDir := "/test/workdir"
-	projectName := "test-project"
+func TestDockerOrchestrator_SetComposeFiles(t *testing.T) {
+	orchestrator := NewDockerOrchestrator("/test/workdir").(*DockerOrchestrator)
 
-	orchestrator := NewDockerOrchestrator(composeFile, workingDir, projectName).(*DockerOrchestrator)
+	// Files with "infrastructure" in the path are treated as infrastructure files
+	files := []string{"/path/infrastructure/docker-compose.yaml", "/path/mars/docker-compose.yaml"}
+	orchestrator.SetComposeFiles(files)
 
-	if orchestrator.composeFile != composeFile {
-		t.Errorf("Expected composeFile %q, got %q", composeFile, orchestrator.composeFile)
+	if orchestrator.infrastructureFile != "/path/infrastructure/docker-compose.yaml" {
+		t.Errorf("Expected infrastructure file to be set, got %q", orchestrator.infrastructureFile)
 	}
-	if orchestrator.workingDir != workingDir {
-		t.Errorf("Expected workingDir %q, got %q", workingDir, orchestrator.workingDir)
+
+	if len(orchestrator.serviceFiles) != 1 {
+		t.Errorf("Expected 1 service file, got %d", len(orchestrator.serviceFiles))
 	}
-	if orchestrator.projectName != projectName {
-		t.Errorf("Expected projectName %q, got %q", projectName, orchestrator.projectName)
+
+	if orchestrator.serviceFiles[0] != "/path/mars/docker-compose.yaml" {
+		t.Errorf("Expected service file to be /path/mars/docker-compose.yaml, got %q", orchestrator.serviceFiles[0])
+	}
+}
+
+func TestDockerOrchestrator_composeArgs(t *testing.T) {
+	orchestrator := NewDockerOrchestrator("/test/workdir").(*DockerOrchestrator)
+	orchestrator.SetComposeFiles([]string{"/path/infrastructure/docker-compose.yaml", "/path/svc/docker-compose.yaml"})
+
+	args := orchestrator.composeArgs()
+
+	// Expected: compose -p grund -f /path/infrastructure/docker-compose.yaml -f /path/svc/docker-compose.yaml
+	expected := []string{"compose", "-p", ProjectName, "-f", "/path/infrastructure/docker-compose.yaml", "-f", "/path/svc/docker-compose.yaml"}
+	if len(args) != len(expected) {
+		t.Fatalf("Expected %d args, got %d: %v", len(expected), len(args), args)
+	}
+
+	for i, arg := range expected {
+		if args[i] != arg {
+			t.Errorf("Arg %d: expected %q, got %q", i, arg, args[i])
+		}
 	}
 }
 
 func TestGetProjectName(t *testing.T) {
-	tests := []struct {
-		name              string
-		orchestrationRoot string
-		expected          string
-	}{
-		{
-			name:              "simple directory",
-			orchestrationRoot: "/project/saturn",
-			expected:          "grund-saturn",
-		},
-		{
-			name:              "nested directory",
-			orchestrationRoot: "/home/user/projects/myapp",
-			expected:          "grund-myapp",
-		},
-		{
-			name:              "hidden directory",
-			orchestrationRoot: "/home/user/.grund",
-			expected:          "grund-grund",
-		},
-		{
-			name:              "directory with dots",
-			orchestrationRoot: "/home/user/my.project.name",
-			expected:          "grund-my-project-name",
-		},
-		{
-			name:              "uppercase directory",
-			orchestrationRoot: "/home/user/MyProject",
-			expected:          "grund-myproject",
-		},
-		{
-			name:              "directory with spaces",
-			orchestrationRoot: "/home/user/my project",
-			expected:          "grund-my-project",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := GetProjectName(tt.orchestrationRoot)
-			if result != tt.expected {
-				t.Errorf("GetProjectName(%q) = %q, want %q", tt.orchestrationRoot, result, tt.expected)
-			}
-		})
+	// GetProjectName should always return the static "grund" project name
+	result := GetProjectName()
+	if result != ProjectName {
+		t.Errorf("GetProjectName() = %q, want %q", result, ProjectName)
 	}
 }
 

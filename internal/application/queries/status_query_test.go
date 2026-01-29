@@ -51,6 +51,10 @@ func (m *mockStatusOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]p
 	}, nil
 }
 
+func (m *mockStatusOrchestrator) SetComposeFiles(files []string) {
+	// no-op for tests
+}
+
 func TestStatusQueryHandler_Handle_SingleService(t *testing.T) {
 	orchestrator := &mockStatusOrchestrator{
 		statusFunc: func(name service.ServiceName) (ports.ServiceStatus, error) {

@@ -15,6 +15,11 @@ import (
 	"github.com/vivekkundariya/grund/internal/ui"
 )
 
+const (
+	// ProjectName is the static project name for all docker compose commands
+	ProjectName = "grund"
+)
+
 // dockerComposeService represents the JSON output from docker compose ps
 type dockerComposeService struct {
 	Name       string `json:"Name"`
@@ -31,35 +36,80 @@ type dockerComposeService struct {
 // DockerOrchestrator implements ContainerOrchestrator using Docker Compose
 // This is an infrastructure adapter
 type DockerOrchestrator struct {
-	composeFile string
-	workingDir  string
-	projectName string
+	infrastructureFile string   // infrastructure compose file (creates the network)
+	serviceFiles       []string // service compose files (use external network)
+	workingDir         string
+	projectName        string
 }
 
 // NewDockerOrchestrator creates a new Docker orchestrator
 // projectName ensures consistent container naming across runs
-func NewDockerOrchestrator(composeFile, workingDir, projectName string) ports.ContainerOrchestrator {
+func NewDockerOrchestrator(workingDir string) ports.ContainerOrchestrator {
 	return &DockerOrchestrator{
-		composeFile: composeFile,
-		workingDir:  workingDir,
-		projectName: projectName,
+		infrastructureFile: "",
+		serviceFiles:       []string{},
+		workingDir:         workingDir,
+		projectName:        ProjectName,
 	}
 }
 
-// composeArgs returns the base docker compose arguments with project name
+// SetComposeFiles updates the compose files to use
+// The first file containing "infrastructure" in the path is treated as the infrastructure file
+func (d *DockerOrchestrator) SetComposeFiles(files []string) {
+	d.infrastructureFile = ""
+	d.serviceFiles = []string{}
+
+	for _, file := range files {
+		if strings.Contains(file, "infrastructure") {
+			d.infrastructureFile = file
+		} else {
+			d.serviceFiles = append(d.serviceFiles, file)
+		}
+	}
+}
+
+// composeArgs returns the base docker compose arguments with project name and all compose files
 func (d *DockerOrchestrator) composeArgs() []string {
-	return []string{"compose", "-p", d.projectName, "-f", d.composeFile}
+	return d.composeArgsForFiles(d.allComposeFiles())
+}
+
+// composeArgsForFiles returns docker compose arguments for specific files
+func (d *DockerOrchestrator) composeArgsForFiles(files []string) []string {
+	args := []string{"compose", "-p", d.projectName}
+	for _, file := range files {
+		args = append(args, "-f", file)
+	}
+	return args
+}
+
+// allComposeFiles returns all compose files (infrastructure + services)
+func (d *DockerOrchestrator) allComposeFiles() []string {
+	files := []string{}
+	if d.infrastructureFile != "" {
+		files = append(files, d.infrastructureFile)
+	}
+	files = append(files, d.serviceFiles...)
+	return files
 }
 
 // infrastructureServices are the services that should be started first
 var infrastructureServices = []string{"postgres", "mongodb", "redis", "localstack"}
 
 // StartInfrastructure starts infrastructure containers and waits for them to be healthy
+// Only uses the infrastructure compose file to avoid network dependency issues
 func (d *DockerOrchestrator) StartInfrastructure(ctx context.Context) error {
-	ui.Debug("Reading compose file: %s", d.composeFile)
+	if d.infrastructureFile == "" {
+		ui.Debug("No infrastructure compose file, skipping infrastructure startup")
+		return nil
+	}
 
-	// First, get the list of services defined in the compose file
-	configArgs := append(d.composeArgs(), "config", "--services")
+	ui.Debug("Reading infrastructure compose file: %s", d.infrastructureFile)
+
+	// Use only infrastructure file for this operation
+	infraArgs := d.composeArgsForFiles([]string{d.infrastructureFile})
+
+	// First, get the list of services defined in the infrastructure compose file
+	configArgs := append(infraArgs, "config", "--services")
 	configCmd := exec.CommandContext(ctx, "docker", configArgs...)
 	configCmd.Dir = d.workingDir
 	configOutput, err := configCmd.Output()
@@ -75,7 +125,7 @@ func (d *DockerOrchestrator) StartInfrastructure(ctx context.Context) error {
 			availableServices[svc] = true
 		}
 	}
-	ui.Debug("Available services in compose: %v", availableServices)
+	ui.Debug("Available infrastructure services: %v", availableServices)
 
 	// Filter infrastructure services to only those in compose file
 	var servicesToStart []string
@@ -93,7 +143,8 @@ func (d *DockerOrchestrator) StartInfrastructure(ctx context.Context) error {
 	ui.SubStep("Starting: %s", strings.Join(servicesToStart, ", "))
 
 	// Start infrastructure services with --wait to ensure they're healthy
-	args := append(d.composeArgs(), "up", "-d", "--wait")
+	// Only use infrastructure file to create the network first
+	args := append(infraArgs, "up", "-d", "--wait")
 	args = append(args, servicesToStart...)
 
 	ui.Debug("Running: docker %s", strings.Join(args, " "))
@@ -135,6 +186,12 @@ func (d *DockerOrchestrator) StartServices(ctx context.Context, services []servi
 
 // StopServices stops all services
 func (d *DockerOrchestrator) StopServices(ctx context.Context) error {
+	// If no compose files, nothing to stop
+	if len(d.allComposeFiles()) == 0 {
+		ui.Infof("No services to stop")
+		return nil
+	}
+
 	ui.Step("Stopping services...")
 
 	args := append(d.composeArgs(), "down")
@@ -271,6 +328,12 @@ func (d *DockerOrchestrator) parseStatusFallback(name, outputStr string) ports.S
 
 // GetAllServiceStatuses gets status of all services in the compose file
 func (d *DockerOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]ports.ServiceStatus, error) {
+	// If no compose files, return empty list
+	allFiles := d.allComposeFiles()
+	if len(allFiles) == 0 {
+		return []ports.ServiceStatus{}, nil
+	}
+
 	// Get all services from compose file
 	configArgs := append(d.composeArgs(), "config", "--services")
 	configCmd := exec.CommandContext(ctx, "docker", configArgs...)
@@ -299,145 +362,111 @@ func (d *DockerOrchestrator) GetLogs(ctx context.Context, name service.ServiceNa
 	return nil, fmt.Errorf("not implemented")
 }
 
-// GetComposeFilePath returns the path to the generated compose file
-// Files are stored in ~/.grund/tmp/<project-name>/ for easy cleanup
-// Project name is derived from the orchestration root directory name
-func GetComposeFilePath(orchestrationRoot string) string {
+// GetGrundTmpDir returns the path to ~/.grund/tmp
+func GetGrundTmpDir() (string, error) {
 	grundHome, err := config.GetGrundHome()
 	if err != nil {
-		// Fallback to orchestration root if we can't get grund home
-		return filepath.Join(orchestrationRoot, "docker-compose.generated.yaml")
+		return "", fmt.Errorf("failed to get grund home: %w", err)
 	}
-
-	// Get sanitized project name from orchestration root directory
-	absRoot, err := filepath.Abs(orchestrationRoot)
-	if err != nil {
-		return filepath.Join(orchestrationRoot, "docker-compose.generated.yaml")
-	}
-	dirName := filepath.Base(absRoot)
-	projectName := sanitizeProjectName(dirName)
-	if projectName == "" {
-		projectName = "default"
-	}
-
-	// Create project-specific tmp directory
-	projectTmpDir := filepath.Join(grundHome, "tmp", projectName)
-
-	// Ensure project tmp directory exists
-	if err := os.MkdirAll(projectTmpDir, 0755); err != nil {
-		// Fallback to orchestration root if we can't create tmp dir
-		return filepath.Join(orchestrationRoot, "docker-compose.generated.yaml")
-	}
-
-	return filepath.Join(projectTmpDir, "docker-compose.generated.yaml")
+	return filepath.Join(grundHome, "tmp"), nil
 }
 
-// StopAllProjects stops all projects found in ~/.grund/tmp/
-// This is useful when running `grund down` without a valid project context
-func StopAllProjects(ctx context.Context) error {
-	grundHome, err := config.GetGrundHome()
+// GetInfrastructureComposePath returns the path to the infrastructure compose file
+func GetInfrastructureComposePath() (string, error) {
+	tmpDir, err := GetGrundTmpDir()
 	if err != nil {
-		return fmt.Errorf("failed to get grund home: %w", err)
+		return "", err
+	}
+	return filepath.Join(tmpDir, "infrastructure", "docker-compose.yaml"), nil
+}
+
+// GetServiceComposePath returns the path to a service's compose file
+func GetServiceComposePath(serviceName string) (string, error) {
+	tmpDir, err := GetGrundTmpDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(tmpDir, serviceName, "docker-compose.yaml"), nil
+}
+
+// DiscoverComposeFiles scans ~/.grund/tmp/ and returns all compose files found
+func DiscoverComposeFiles() (*ports.ComposeFileSet, error) {
+	tmpDir, err := GetGrundTmpDir()
+	if err != nil {
+		return nil, err
 	}
 
-	tmpDir := filepath.Join(grundHome, "tmp")
+	fileSet := &ports.ComposeFileSet{
+		ServicePaths: make(map[string]string),
+	}
 
 	// Check if tmp directory exists
 	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
-		ui.Infof("No projects found in %s", tmpDir)
-		return nil
+		return fileSet, nil
 	}
 
-	// List all project directories
+	// Scan all subdirectories for docker-compose.yaml
 	entries, err := os.ReadDir(tmpDir)
 	if err != nil {
-		return fmt.Errorf("failed to read tmp directory: %w", err)
+		return nil, fmt.Errorf("failed to read tmp directory: %w", err)
 	}
 
-	if len(entries) == 0 {
-		ui.Infof("No projects found")
-		return nil
-	}
-
-	// Stop each project
 	for _, entry := range entries {
 		if !entry.IsDir() {
 			continue
 		}
 
-		projectName := "grund-" + entry.Name()
-		composeFile := filepath.Join(tmpDir, entry.Name(), "docker-compose.generated.yaml")
-
-		// Check if compose file exists
-		if _, err := os.Stat(composeFile); os.IsNotExist(err) {
+		composePath := filepath.Join(tmpDir, entry.Name(), "docker-compose.yaml")
+		if _, err := os.Stat(composePath); os.IsNotExist(err) {
 			continue
 		}
 
-		ui.Infof("Stopping project: %s", entry.Name())
-
-		args := []string{"compose", "-p", projectName, "-f", composeFile, "down"}
-		cmd := exec.CommandContext(ctx, "docker", args...)
-		output, err := cmd.CombinedOutput()
-
-		if err != nil {
-			ui.Warnf("Failed to stop %s: %s", entry.Name(), string(output))
-			// Continue with other projects
+		if entry.Name() == "infrastructure" {
+			fileSet.InfrastructurePath = composePath
 		} else {
-			ui.Successf("Stopped %s", entry.Name())
+			fileSet.ServicePaths[entry.Name()] = composePath
 		}
 	}
 
+	return fileSet, nil
+}
+
+// StopAllProjects stops all services using discovered compose files
+func StopAllProjects(ctx context.Context) error {
+	fileSet, err := DiscoverComposeFiles()
+	if err != nil {
+		return fmt.Errorf("failed to discover compose files: %w", err)
+	}
+
+	allPaths := fileSet.AllPaths()
+	if len(allPaths) == 0 {
+		ui.Infof("No services found to stop")
+		return nil
+	}
+
+	ui.Infof("Stopping all Grund services...")
+
+	// Build docker compose command with all files
+	args := []string{"compose", "-p", ProjectName}
+	for _, path := range allPaths {
+		args = append(args, "-f", path)
+	}
+	args = append(args, "down")
+
+	cmd := exec.CommandContext(ctx, "docker", args...)
+	output, err := cmd.CombinedOutput()
+
+	if err != nil {
+		ui.Warnf("Failed to stop services: %s", string(output))
+		return fmt.Errorf("failed to stop services: %w", err)
+	}
+
+	ui.Successf("All services stopped")
 	return nil
 }
 
-// GetProjectName returns the project name derived from the orchestration root
+// GetProjectName returns the static project name "grund"
 // This is used as the docker compose project name for consistent container naming
-// Docker Compose project names must be lowercase alphanumeric, hyphens, underscores,
-// and must start with a letter or number
-func GetProjectName(orchestrationRoot string) string {
-	absRoot, err := filepath.Abs(orchestrationRoot)
-	if err != nil {
-		return "grund"
-	}
-
-	dirName := filepath.Base(absRoot)
-	sanitized := sanitizeProjectName(dirName)
-
-	if sanitized == "" {
-		return "grund"
-	}
-
-	return "grund-" + sanitized
-}
-
-// sanitizeProjectName ensures the name is valid for Docker Compose
-// Valid: lowercase alphanumeric, hyphens, underscores, must start with letter/number
-func sanitizeProjectName(name string) string {
-	// Convert to lowercase
-	name = strings.ToLower(name)
-
-	// Replace invalid characters with hyphens
-	var result strings.Builder
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
-			result.WriteRune(r)
-		} else if r == '.' || r == ' ' {
-			// Skip dots and spaces, or replace with hyphen if needed
-			if result.Len() > 0 {
-				result.WriteRune('-')
-			}
-		}
-	}
-
-	sanitized := result.String()
-
-	// Trim leading/trailing hyphens
-	sanitized = strings.Trim(sanitized, "-_")
-
-	// Ensure it starts with a letter or number
-	if len(sanitized) > 0 && !((sanitized[0] >= 'a' && sanitized[0] <= 'z') || (sanitized[0] >= '0' && sanitized[0] <= '9')) {
-		sanitized = "project-" + sanitized
-	}
-
-	return sanitized
+func GetProjectName() string {
+	return ProjectName
 }

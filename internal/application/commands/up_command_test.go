@@ -87,6 +87,10 @@ func (m *mockOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]ports.S
 	return nil, nil
 }
 
+func (m *mockOrchestrator) SetComposeFiles(files []string) {
+	// no-op for tests
+}
+
 type mockProvisioner struct {
 	provisionErr      error
 	postgresCalls     []*infrastructure.PostgresConfig
@@ -119,11 +123,14 @@ type mockComposeGenerator struct {
 	generateErr error
 }
 
-func (m *mockComposeGenerator) Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (string, error) {
+func (m *mockComposeGenerator) Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (*ports.ComposeFileSet, error) {
 	if m.generateErr != nil {
-		return "", m.generateErr
+		return nil, m.generateErr
 	}
-	return "/tmp/docker-compose.generated.yaml", nil
+	return &ports.ComposeFileSet{
+		InfrastructurePath: "/tmp/infrastructure/docker-compose.yaml",
+		ServicePaths:       map[string]string{},
+	}, nil
 }
 
 type mockHealthChecker struct{}

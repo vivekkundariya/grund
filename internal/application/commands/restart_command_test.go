@@ -43,6 +43,10 @@ func (m *mockRestartOrchestrator) GetAllServiceStatuses(ctx context.Context) ([]
 	return nil, nil
 }
 
+func (m *mockRestartOrchestrator) SetComposeFiles(files []string) {
+	// no-op for tests
+}
+
 func TestRestartCommandHandler_Handle_SingleService(t *testing.T) {
 	orchestrator := &mockRestartOrchestrator{}
 	handler := NewRestartCommandHandler(orchestrator)

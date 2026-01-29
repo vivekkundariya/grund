@@ -25,26 +25,24 @@ Examples:
   grund reset -v           # Stop and remove volumes (database data)
   grund reset -v --images  # Stop, remove volumes and images (full cleanup)`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if configResolver == nil {
-			return fmt.Errorf("config not initialized")
-		}
-
-		_, orchestrationRoot, err := configResolver.ResolveServicesFile()
+		// Discover compose files
+		fileSet, err := docker.DiscoverComposeFiles()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to discover compose files: %w", err)
 		}
 
-		composeFile := docker.GetComposeFilePath(orchestrationRoot)
-		projectName := docker.GetProjectName(orchestrationRoot)
-
-		// Check if compose file exists
-		if _, err := os.Stat(composeFile); os.IsNotExist(err) {
-			ui.Infof("No services to reset (no compose file found)")
+		allPaths := fileSet.AllPaths()
+		if len(allPaths) == 0 {
+			ui.Infof("No services to reset (no compose files found)")
 			return nil
 		}
 
-		// Build docker compose down command with project name
-		dockerArgs := []string{"compose", "-p", projectName, "-f", composeFile, "down"}
+		// Build docker compose down command with project name and all compose files
+		dockerArgs := []string{"compose", "-p", docker.ProjectName}
+		for _, path := range allPaths {
+			dockerArgs = append(dockerArgs, "-f", path)
+		}
+		dockerArgs = append(dockerArgs, "down")
 
 		if resetVolumes {
 			dockerArgs = append(dockerArgs, "-v")
@@ -60,7 +58,6 @@ Examples:
 
 		// Execute docker compose down
 		dockerCmd := exec.CommandContext(cmd.Context(), "docker", dockerArgs...)
-		dockerCmd.Dir = orchestrationRoot
 		dockerCmd.Stdout = os.Stdout
 		dockerCmd.Stderr = os.Stderr
 
