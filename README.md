@@ -52,6 +52,12 @@ Ready!
 
 ## Installation
 
+### Using Go Install
+
+```bash
+go install github.com/vivekkundariya/grund/cmd/grund@latest
+```
+
 ### From Source
 
 ```bash
