@@ -17,6 +17,7 @@ type ContainerOrchestrator interface {
 	GetServiceStatus(ctx context.Context, name service.ServiceName) (ServiceStatus, error)
 	GetAllServiceStatuses(ctx context.Context) ([]ServiceStatus, error)
 	GetLogs(ctx context.Context, name service.ServiceName, follow bool, tail int) (LogStream, error)
+	SetComposeFiles(files []string)
 }
 
 // ServiceStatus represents the status of a service

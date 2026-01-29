@@ -15,15 +15,16 @@ import (
 
 // ComposeGeneratorImpl implements ComposeGenerator
 type ComposeGeneratorImpl struct {
-	outputPath    string
+	tmpDir        string // ~/.grund/tmp
 	envResolver   ports.EnvironmentResolver
 	secretsLoader *SecretsLoader
 }
 
 // NewComposeGenerator creates a new compose generator
-func NewComposeGenerator(outputPath string) ports.ComposeGenerator {
+// tmpDir should be ~/.grund/tmp
+func NewComposeGenerator(tmpDir string) ports.ComposeGenerator {
 	return &ComposeGeneratorImpl{
-		outputPath:    outputPath,
+		tmpDir:        tmpDir,
 		envResolver:   NewEnvironmentResolver(),
 		secretsLoader: NewSecretsLoader(),
 	}
@@ -31,7 +32,6 @@ func NewComposeGenerator(outputPath string) ports.ComposeGenerator {
 
 // ComposeFile represents a docker-compose.yaml structure
 type ComposeFile struct {
-	Version  string                    `yaml:"version"`
 	Services map[string]ComposeService `yaml:"services"`
 	Networks map[string]ComposeNetwork `yaml:"networks,omitempty"`
 	Volumes  map[string]ComposeVolume  `yaml:"volumes,omitempty"`
@@ -68,7 +68,9 @@ type ComposeHealth struct {
 
 // ComposeNetwork represents a network
 type ComposeNetwork struct {
-	Driver string `yaml:"driver,omitempty"`
+	Driver   string `yaml:"driver,omitempty"`
+	External bool   `yaml:"external,omitempty"`
+	Name     string `yaml:"name,omitempty"`
 }
 
 // ComposeVolume represents a volume
@@ -154,23 +156,17 @@ func (pa *portAllocator) allocate(serviceName string, containerPort int) (hostPo
 	}
 }
 
-// Generate generates a docker-compose.yaml file
-func (g *ComposeGeneratorImpl) Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (string, error) {
-	// Ensure directory exists
-	dir := filepath.Dir(g.outputPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return "", fmt.Errorf("failed to create directory: %w", err)
+// Generate generates per-service docker-compose.yaml files
+// Infrastructure goes in ~/.grund/tmp/infrastructure/docker-compose.yaml
+// Each service goes in ~/.grund/tmp/<service>/docker-compose.yaml
+// Returns ALL compose files (including existing ones from previous runs)
+func (g *ComposeGeneratorImpl) Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (*ports.ComposeFileSet, error) {
+	fileSet := &ports.ComposeFileSet{
+		ServicePaths: make(map[string]string),
 	}
 
-	// Build the compose file
-	compose := &ComposeFile{
-		Version:  "3.8",
-		Services: make(map[string]ComposeService),
-		Networks: map[string]ComposeNetwork{
-			"grund-network": {Driver: "bridge"},
-		},
-		Volumes: make(map[string]ComposeVolume),
-	}
+	// First, discover existing compose files from previous runs
+	g.discoverExistingComposeFiles(fileSet)
 
 	// Build environment context for variable resolution
 	envContext := g.buildEnvironmentContext(services, infra)
@@ -178,18 +174,184 @@ func (g *ComposeGeneratorImpl) Generate(services []*service.Service, infra infra
 	// Create port allocator to handle port conflicts
 	portAlloc := newPortAllocator()
 
-	// Add infrastructure services
+	// Generate infrastructure compose file if there are any infrastructure requirements
+	// Note: generateInfrastructure merges with existing infrastructure
+	if infra.Postgres != nil || infra.MongoDB != nil || infra.Redis != nil ||
+		infra.SQS != nil || infra.SNS != nil || infra.S3 != nil {
+		infraPath, err := g.generateInfrastructure(infra)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate infrastructure compose: %w", err)
+		}
+		fileSet.InfrastructurePath = infraPath
+	} else if fileSet.InfrastructurePath != "" {
+		// No new infrastructure requirements, but keep existing infrastructure
+		ui.Debug("Keeping existing infrastructure compose file")
+	}
+
+	// Generate per-service compose files (overwrites if service already exists)
+	for _, svc := range services {
+		svcPath, err := g.generateService(svc, envContext, portAlloc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate compose for %s: %w", svc.Name, err)
+		}
+		fileSet.ServicePaths[svc.Name] = svcPath
+	}
+
+	return fileSet, nil
+}
+
+// discoverExistingComposeFiles scans tmpDir for existing compose files
+func (g *ComposeGeneratorImpl) discoverExistingComposeFiles(fileSet *ports.ComposeFileSet) {
+	// Check if tmp directory exists
+	if _, err := os.Stat(g.tmpDir); os.IsNotExist(err) {
+		return
+	}
+
+	// Scan all subdirectories for docker-compose.yaml
+	entries, err := os.ReadDir(g.tmpDir)
+	if err != nil {
+		ui.Debug("Failed to read tmp directory: %v", err)
+		return
+	}
+
+	for _, entry := range entries {
+		if !entry.IsDir() {
+			continue
+		}
+
+		composePath := filepath.Join(g.tmpDir, entry.Name(), "docker-compose.yaml")
+		if _, err := os.Stat(composePath); os.IsNotExist(err) {
+			continue
+		}
+
+		if entry.Name() == "infrastructure" {
+			fileSet.InfrastructurePath = composePath
+		} else {
+			fileSet.ServicePaths[entry.Name()] = composePath
+		}
+	}
+
+	if len(fileSet.ServicePaths) > 0 || fileSet.InfrastructurePath != "" {
+		svcNames := make([]string, 0, len(fileSet.ServicePaths))
+		for name := range fileSet.ServicePaths {
+			svcNames = append(svcNames, name)
+		}
+		ui.Debug("Discovered existing compose files: infra=%v, services=%v",
+			fileSet.InfrastructurePath != "", svcNames)
+	}
+}
+
+// generateInfrastructure generates the infrastructure docker-compose.yaml
+// It merges with existing infrastructure to support incremental service startup
+func (g *ComposeGeneratorImpl) generateInfrastructure(infra infrastructure.InfrastructureRequirements) (string, error) {
+	infraDir := filepath.Join(g.tmpDir, "infrastructure")
+	if err := os.MkdirAll(infraDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create infrastructure directory: %w", err)
+	}
+
+	outputPath := filepath.Join(infraDir, "docker-compose.yaml")
+
+	// Try to load existing infrastructure compose file
+	existingCompose := g.loadExistingInfrastructure(outputPath)
+
+	compose := &ComposeFile{
+				Services: make(map[string]ComposeService),
+		Networks: map[string]ComposeNetwork{
+			"grund-network": {Driver: "bridge", Name: "grund-network"},
+		},
+		Volumes: make(map[string]ComposeVolume),
+	}
+
+	// Merge existing services first (preserves infrastructure from previous runs)
+	if existingCompose != nil {
+		for name, svc := range existingCompose.Services {
+			compose.Services[name] = svc
+		}
+		for name, vol := range existingCompose.Volumes {
+			compose.Volumes[name] = vol
+		}
+		ui.Debug("Merged existing infrastructure: %v", getServiceNames(existingCompose.Services))
+	}
+
+	// Add/update infrastructure services from current requirements
+	// This will overwrite existing services with same name (ensures config is up to date)
 	g.addInfrastructureServices(compose, infra)
 
-	// Add application services
-	if err := g.addApplicationServices(compose, services, envContext, portAlloc); err != nil {
+	if err := g.writeComposeFile(outputPath, compose); err != nil {
 		return "", err
 	}
 
-	// Write to file
-	file, err := os.Create(g.outputPath)
+	return outputPath, nil
+}
+
+// loadExistingInfrastructure reads and parses an existing infrastructure compose file
+func (g *ComposeGeneratorImpl) loadExistingInfrastructure(path string) *ComposeFile {
+	data, err := os.ReadFile(path)
 	if err != nil {
-		return "", fmt.Errorf("failed to create compose file: %w", err)
+		return nil // File doesn't exist or can't be read
+	}
+
+	var compose ComposeFile
+	if err := yaml.Unmarshal(data, &compose); err != nil {
+		ui.Debug("Failed to parse existing infrastructure compose: %v", err)
+		return nil
+	}
+
+	return &compose
+}
+
+// getServiceNames returns the names of services in a map (for logging)
+func getServiceNames(services map[string]ComposeService) []string {
+	names := make([]string, 0, len(services))
+	for name := range services {
+		names = append(names, name)
+	}
+	return names
+}
+
+// generateService generates a single service's docker-compose.yaml
+func (g *ComposeGeneratorImpl) generateService(svc *service.Service, envContext ports.EnvironmentContext, portAlloc *portAllocator) (string, error) {
+	svcDir := filepath.Join(g.tmpDir, svc.Name)
+	if err := os.MkdirAll(svcDir, 0755); err != nil {
+		return "", fmt.Errorf("failed to create service directory: %w", err)
+	}
+
+	compose := &ComposeFile{
+				Services: make(map[string]ComposeService),
+		Networks: map[string]ComposeNetwork{
+			"grund-network": {External: true, Name: "grund-network"},
+		},
+	}
+
+	// Build self context for this service
+	selfContext := envContext
+	selfContext.Self = ports.ServiceContext{
+		Host: svc.Name,
+		Port: svc.Port.Value(),
+		Config: map[string]any{
+			"postgres.database": getServicePostgresDB(svc),
+			"mongodb.database":  getServiceMongoDB(svc),
+		},
+	}
+
+	// Add this service to the compose file
+	if err := g.addSingleService(compose, svc, selfContext, portAlloc); err != nil {
+		return "", err
+	}
+
+	outputPath := filepath.Join(svcDir, "docker-compose.yaml")
+	if err := g.writeComposeFile(outputPath, compose); err != nil {
+		return "", err
+	}
+
+	return outputPath, nil
+}
+
+// writeComposeFile writes a compose file to disk
+func (g *ComposeGeneratorImpl) writeComposeFile(outputPath string, compose *ComposeFile) error {
+	file, err := os.Create(outputPath)
+	if err != nil {
+		return fmt.Errorf("failed to create compose file: %w", err)
 	}
 	defer file.Close()
 
@@ -200,10 +362,92 @@ func (g *ComposeGeneratorImpl) Generate(services []*service.Service, infra infra
 	encoder := yaml.NewEncoder(file)
 	encoder.SetIndent(2)
 	if err := encoder.Encode(compose); err != nil {
-		return "", fmt.Errorf("failed to write compose file: %w", err)
+		return fmt.Errorf("failed to write compose file: %w", err)
 	}
 
-	return g.outputPath, nil
+	return nil
+}
+
+// addSingleService adds a single service to a compose file
+func (g *ComposeGeneratorImpl) addSingleService(compose *ComposeFile, svc *service.Service, selfContext ports.EnvironmentContext, portAlloc *portAllocator) error {
+	// Resolve environment variables
+	resolvedEnv := make(map[string]string)
+
+	// Add static environment variables
+	for k, v := range svc.Environment.Variables {
+		resolvedEnv[k] = v
+	}
+
+	// Resolve environment references
+	if len(svc.Environment.References) > 0 {
+		resolved, err := g.envResolver.Resolve(svc.Environment.References, selfContext)
+		if err != nil {
+			return fmt.Errorf("failed to resolve env: %w", err)
+		}
+		for k, v := range resolved {
+			resolvedEnv[k] = v
+		}
+	}
+
+	// Add AWS credentials if LocalStack is used
+	if svc.RequiresInfrastructure("localstack") {
+		resolvedEnv["AWS_ENDPOINT"] = selfContext.LocalStack.Endpoint
+		resolvedEnv["AWS_REGION"] = selfContext.LocalStack.Region
+		resolvedEnv["AWS_ACCESS_KEY_ID"] = selfContext.LocalStack.AccessKeyID
+		resolvedEnv["AWS_SECRET_ACCESS_KEY"] = selfContext.LocalStack.SecretAccessKey
+		resolvedEnv["AWS_ACCOUNT_ID"] = selfContext.LocalStack.AccountID
+	}
+
+	// Add resolved secrets
+	if len(svc.Environment.Secrets) > 0 {
+		secrets, err := g.secretsLoader.ResolveSecrets(svc)
+		if err != nil {
+			return fmt.Errorf("failed to resolve secrets: %w", err)
+		}
+		for k, v := range secrets {
+			resolvedEnv[k] = v
+		}
+	}
+
+	// Build depends_on with conditions
+	dependsOn := g.buildDependsOn(svc)
+
+	// Create compose service
+	composeService := ComposeService{
+		ContainerName: fmt.Sprintf("grund-%s", svc.Name),
+		Environment:   resolvedEnv,
+		Networks:      []string{"grund-network"},
+		DependsOn:     dependsOn,
+	}
+
+	// Set build or image
+	if svc.Build != nil {
+		composeService.Build = &ComposeBuild{
+			Context:    svc.Build.Context,
+			Dockerfile: svc.Build.Dockerfile,
+		}
+	}
+
+	// Set ports with conflict detection
+	containerPort := svc.Port.Value()
+	hostPort, wasReassigned := portAlloc.allocate(svc.Name, containerPort)
+	if wasReassigned {
+		ui.Warnf("Port conflict: %s uses container port %d, assigned host port %d", svc.Name, containerPort, hostPort)
+	}
+	composeService.Ports = []string{fmt.Sprintf("%d:%d", hostPort, containerPort)}
+
+	// Set healthcheck
+	if svc.Health.Endpoint != "" {
+		composeService.Healthcheck = &ComposeHealth{
+			Test:     []string{"CMD-SHELL", fmt.Sprintf("curl -sf http://localhost:%d%s || exit 1", svc.Port.Value(), svc.Health.Endpoint)},
+			Interval: svc.Health.Interval.String(),
+			Timeout:  svc.Health.Timeout.String(),
+			Retries:  svc.Health.Retries,
+		}
+	}
+
+	compose.Services[svc.Name] = composeService
+	return nil
 }
 
 func (g *ComposeGeneratorImpl) buildEnvironmentContext(services []*service.Service, infra infrastructure.InfrastructureRequirements) ports.EnvironmentContext {
@@ -272,7 +516,7 @@ func (g *ComposeGeneratorImpl) buildEnvironmentContext(services []*service.Servi
 		ctx.Services[svc.Name] = ports.ServiceContext{
 			Host: svc.Name, // Container name in Docker network
 			Port: svc.Port.Value(),
-			Config: map[string]interface{}{
+			Config: map[string]any{
 				"postgres.database": getServicePostgresDB(svc),
 				"mongodb.database":  getServiceMongoDB(svc),
 			},
@@ -382,101 +626,6 @@ func (g *ComposeGeneratorImpl) addInfrastructureServices(compose *ComposeFile, i
 		}
 		compose.Volumes["localstack-data"] = ComposeVolume{}
 	}
-}
-
-func (g *ComposeGeneratorImpl) addApplicationServices(compose *ComposeFile, services []*service.Service, envContext ports.EnvironmentContext, portAlloc *portAllocator) error {
-	for _, svc := range services {
-		// Build self context for this service
-		selfContext := envContext
-		selfContext.Self = ports.ServiceContext{
-			Host: svc.Name,
-			Port: svc.Port.Value(),
-			Config: map[string]interface{}{
-				"postgres.database": getServicePostgresDB(svc),
-				"mongodb.database":  getServiceMongoDB(svc),
-			},
-		}
-
-		// Resolve environment variables
-		resolvedEnv := make(map[string]string)
-
-		// Add static environment variables
-		for k, v := range svc.Environment.Variables {
-			resolvedEnv[k] = v
-		}
-
-		// Resolve environment references
-		if len(svc.Environment.References) > 0 {
-			resolved, err := g.envResolver.Resolve(svc.Environment.References, selfContext)
-			if err != nil {
-				return fmt.Errorf("failed to resolve env for %s: %w", svc.Name, err)
-			}
-			for k, v := range resolved {
-				resolvedEnv[k] = v
-			}
-		}
-
-		// Add AWS credentials if LocalStack is used
-		if svc.RequiresInfrastructure("localstack") {
-			resolvedEnv["AWS_ENDPOINT"] = selfContext.LocalStack.Endpoint
-			resolvedEnv["AWS_REGION"] = selfContext.LocalStack.Region
-			resolvedEnv["AWS_ACCESS_KEY_ID"] = selfContext.LocalStack.AccessKeyID
-			resolvedEnv["AWS_SECRET_ACCESS_KEY"] = selfContext.LocalStack.SecretAccessKey
-			resolvedEnv["AWS_ACCOUNT_ID"] = selfContext.LocalStack.AccountID
-		}
-
-		// Add resolved secrets
-		if len(svc.Environment.Secrets) > 0 {
-			secrets, err := g.secretsLoader.ResolveSecrets(svc)
-			if err != nil {
-				return fmt.Errorf("failed to resolve secrets for %s: %w", svc.Name, err)
-			}
-			for k, v := range secrets {
-				resolvedEnv[k] = v
-			}
-		}
-
-		// Build depends_on with conditions
-		dependsOn := g.buildDependsOn(svc)
-
-		// Create compose service
-		composeService := ComposeService{
-			ContainerName: fmt.Sprintf("grund-%s", svc.Name),
-			Environment:   resolvedEnv,
-			Networks:      []string{"grund-network"},
-			DependsOn:     dependsOn,
-		}
-
-		// Set build or image
-		if svc.Build != nil {
-			composeService.Build = &ComposeBuild{
-				Context:    svc.Build.Context,
-				Dockerfile: svc.Build.Dockerfile,
-			}
-		}
-
-		// Set ports with conflict detection
-		containerPort := svc.Port.Value()
-		hostPort, wasReassigned := portAlloc.allocate(svc.Name, containerPort)
-		if wasReassigned {
-			ui.Warnf("Port conflict: %s uses container port %d, assigned host port %d", svc.Name, containerPort, hostPort)
-		}
-		composeService.Ports = []string{fmt.Sprintf("%d:%d", hostPort, containerPort)}
-
-		// Set healthcheck
-		if svc.Health.Endpoint != "" {
-			composeService.Healthcheck = &ComposeHealth{
-				Test:     []string{"CMD-SHELL", fmt.Sprintf("curl -sf http://localhost:%d%s || exit 1", svc.Port.Value(), svc.Health.Endpoint)},
-				Interval: svc.Health.Interval.String(),
-				Timeout:  svc.Health.Timeout.String(),
-				Retries:  svc.Health.Retries,
-			}
-		}
-
-		compose.Services[svc.Name] = composeService
-	}
-
-	return nil
 }
 
 func (g *ComposeGeneratorImpl) buildDependsOn(svc *service.Service) map[string]DependsOnCondition {

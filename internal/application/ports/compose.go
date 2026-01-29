@@ -5,9 +5,27 @@ import (
 	"github.com/vivekkundariya/grund/internal/domain/service"
 )
 
+// ComposeFileSet represents the collection of generated compose files
+type ComposeFileSet struct {
+	InfrastructurePath string            // ~/.grund/tmp/infrastructure/docker-compose.yaml
+	ServicePaths       map[string]string // service name -> full path
+}
+
+// AllPaths returns all compose file paths in the set
+func (c *ComposeFileSet) AllPaths() []string {
+	paths := make([]string, 0, len(c.ServicePaths)+1)
+	if c.InfrastructurePath != "" {
+		paths = append(paths, c.InfrastructurePath)
+	}
+	for _, path := range c.ServicePaths {
+		paths = append(paths, path)
+	}
+	return paths
+}
+
 // ComposeGenerator defines the interface for Docker Compose generation
 type ComposeGenerator interface {
-	Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (string, error)
+	Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (*ComposeFileSet, error)
 }
 
 // EnvironmentResolver defines the interface for environment variable resolution
@@ -48,7 +66,7 @@ type InfrastructureContext struct {
 type ServiceContext struct {
 	Host   string
 	Port   int
-	Config map[string]interface{}
+	Config map[string]any
 }
 
 // QueueContext provides SQS queue details

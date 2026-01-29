@@ -231,8 +231,14 @@ func (h *UpCommandHandler) provisionInfrastructure(ctx context.Context, req infr
 }
 
 func (h *UpCommandHandler) generateCompose(services []*service.Service, req infrastructure.InfrastructureRequirements) error {
-	_, err := h.composeGenerator.Generate(services, req)
-	return err
+	fileSet, err := h.composeGenerator.Generate(services, req)
+	if err != nil {
+		return err
+	}
+
+	// Update orchestrator with the generated compose files
+	h.orchestrator.SetComposeFiles(fileSet.AllPaths())
+	return nil
 }
 
 func (h *UpCommandHandler) startServices(ctx context.Context, order []service.ServiceName) error {

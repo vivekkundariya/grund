@@ -21,20 +21,23 @@ var logsCmd = &cobra.Command{
 	Long:  `View logs from all services or a specific service.`,
 	Args:  cobra.MaximumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if configResolver == nil {
-			return fmt.Errorf("config not initialized")
-		}
-
-		_, orchestrationRoot, err := configResolver.ResolveServicesFile()
+		// Discover compose files
+		fileSet, err := docker.DiscoverComposeFiles()
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to discover compose files: %w", err)
 		}
 
-		composeFile := docker.GetComposeFilePath(orchestrationRoot)
-		projectName := docker.GetProjectName(orchestrationRoot)
+		allPaths := fileSet.AllPaths()
+		if len(allPaths) == 0 {
+			return fmt.Errorf("no services are running. Run 'grund up <service>' first")
+		}
 
-		// Build docker compose logs command with project name
-		dockerArgs := []string{"compose", "-p", projectName, "-f", composeFile, "logs"}
+		// Build docker compose logs command with project name and all compose files
+		dockerArgs := []string{"compose", "-p", docker.ProjectName}
+		for _, path := range allPaths {
+			dockerArgs = append(dockerArgs, "-f", path)
+		}
+		dockerArgs = append(dockerArgs, "logs")
 
 		if logsFollow {
 			dockerArgs = append(dockerArgs, "-f")
@@ -51,7 +54,6 @@ var logsCmd = &cobra.Command{
 
 		// Execute docker compose logs with stdout/stderr connected
 		dockerCmd := exec.CommandContext(cmd.Context(), "docker", dockerArgs...)
-		dockerCmd.Dir = orchestrationRoot
 		dockerCmd.Stdout = os.Stdout
 		dockerCmd.Stderr = os.Stderr
 		dockerCmd.Stdin = os.Stdin
