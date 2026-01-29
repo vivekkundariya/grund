@@ -16,10 +16,10 @@ var (
 )
 
 var logsCmd = &cobra.Command{
-	Use:   "logs [service]",
+	Use:   "logs [services...]",
 	Short: "View aggregated or per-service logs",
-	Long:  `View logs from all services or a specific service.`,
-	Args:  cobra.MaximumNArgs(1),
+	Long:  `View logs from all services or specific services. Multiple services can be specified.`,
+	Args:  cobra.ArbitraryArgs,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		// Discover compose files
 		fileSet, err := docker.DiscoverComposeFiles()
@@ -47,9 +47,9 @@ var logsCmd = &cobra.Command{
 			dockerArgs = append(dockerArgs, "--tail", strconv.Itoa(logsTail))
 		}
 
-		// Add service name if specified
+		// Add service names if specified
 		if len(args) > 0 {
-			dockerArgs = append(dockerArgs, args[0])
+			dockerArgs = append(dockerArgs, args...)
 		}
 
 		// Execute docker compose logs with stdout/stderr connected
