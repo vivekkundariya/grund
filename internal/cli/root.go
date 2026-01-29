@@ -34,7 +34,7 @@ Examples:
   grund down                      Stop all services
   grund status                    Show service status
   grund secrets list myservice    Check required secrets`,
-	Version: "1.0.0",
+	Version: "0.1.0",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Set verbose mode on logger
 		ui.SetVerbose(verbose)
