@@ -41,6 +41,8 @@ grund down
 |----------|-------------|
 | [System Design](../plans/2026-01-22-localdev-system-design.md) | Original architecture decisions and rationale |
 | [Testing Strategy](../plans/2026-01-22-testing-strategy.md) | Testing approach and patterns |
+| [Secrets Management](../plans/2026-01-28-secrets-management-design.md) | Secrets handling design |
+| [SNS Filter Policy](../plans/2026-01-28-sns-filter-policy-design.md) | SNS subscription filtering |
 
 ## Key Concepts
 

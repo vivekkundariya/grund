@@ -55,7 +55,6 @@ grund up [services...] [flags]
 7. Waits for infrastructure health checks
 8. Provisions resources (creates databases, SQS queues, SNS topics, S3 buckets)
 9. Starts all services in parallel (services handle reconnection)
-9. Starts application services in dependency order
 
 **Examples:**
 ```bash
