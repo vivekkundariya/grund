@@ -35,6 +35,7 @@ Examples:
 		}
 
 		composeFile := docker.GetComposeFilePath(orchestrationRoot)
+		projectName := docker.GetProjectName(orchestrationRoot)
 
 		// Check if compose file exists
 		if _, err := os.Stat(composeFile); os.IsNotExist(err) {
@@ -42,8 +43,8 @@ Examples:
 			return nil
 		}
 
-		// Build docker compose down command
-		dockerArgs := []string{"compose", "-f", composeFile, "down"}
+		// Build docker compose down command with project name
+		dockerArgs := []string{"compose", "-p", projectName, "-f", composeFile, "down"}
 
 		if resetVolumes {
 			dockerArgs = append(dockerArgs, "-v")
