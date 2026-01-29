@@ -55,7 +55,7 @@ Ready!
 ### Using Go Install
 
 ```bash
-go install github.com/vivekkundariya/grund/cmd/grund@latest
+go install github.com/vivekkundariya/grund@latest
 ```
 
 ### From Source
