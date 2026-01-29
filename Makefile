@@ -1,10 +1,10 @@
 .PHONY: build install test test-unit test-integration test-e2e test-coverage clean run
 
 build:
-	go build -o bin/grund ./cmd/grund
+	go build -o bin/grund .
 
 install:
-	go install ./cmd/grund
+	go install .
 
 test:
 	go test ./...
@@ -31,4 +31,4 @@ clean:
 	rm -f coverage.out coverage.html
 
 run:
-	go run ./cmd/grund
+	go run .

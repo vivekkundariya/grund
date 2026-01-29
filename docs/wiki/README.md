@@ -107,7 +107,7 @@ env_refs:
                             ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  5. Aggregate infrastructure requirements                   │
-│  6. Generate docker-compose.generated.yaml                  │
+│  6. Generate per-service compose files                      │
 └─────────────────────────────────────────────────────────────┘
                             │
                             ▼
@@ -158,7 +158,7 @@ See [Configuration Reference](./configuration.md#environment-variable-reference)
 
 ```
 grund/
-├── cmd/grund/           # CLI entry point
+├── main.go              # CLI entry point
 ├── internal/
 │   ├── cli/             # Cobra commands
 │   ├── application/     # Use cases (CQRS)
