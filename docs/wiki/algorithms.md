@@ -84,7 +84,7 @@ GetAllDependencies("order-service"):
 
 ### Overview
 
-Detects circular dependencies using DFS with a recursion stack. Circular dependencies would cause infinite startup loops.
+Detects circular dependencies using DFS with a recursion stack. **Note:** Circular dependencies are now allowed - services start in parallel and are expected to handle reconnection to dependencies that start concurrently.
 
 ### Algorithm: DetectCycle
 
@@ -132,7 +132,8 @@ Circular dependency detected:
   A → B → C → A
 
 DetectCycle("A"):
-  Error: "circular dependency detected: A → B → C → A"
+  Returns: ["A", "B", "C", "A"]  // Cycle path for logging
+  Note: This is informational only - services will start in parallel
 ```
 
 ---

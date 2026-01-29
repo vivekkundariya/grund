@@ -211,7 +211,13 @@ type InfrastructureProvisioner interface {
 
 // Generator interfaces
 type ComposeGenerator interface {
-    Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (string, error)
+    Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (*ComposeFileSet, error)
+}
+
+// ComposeFileSet tracks generated per-service compose files
+type ComposeFileSet struct {
+    InfrastructurePath string            // ~/.grund/tmp/infrastructure/docker-compose.yaml
+    ServicePaths       map[string]string // service name -> path
 }
 
 type EnvironmentResolver interface {
@@ -413,8 +419,8 @@ func NewContainerWithConfig(orchestrationRoot, servicesPath string, configResolv
         aws.NewLocalStackProvisioner(localstackEndpoint),
     )
 
-    // 4. Create generators
-    composeGenerator := generator.NewComposeGenerator(composeFile)
+    // 4. Create generators (tmpDir is ~/.grund/tmp)
+    composeGenerator := generator.NewComposeGenerator(tmpDir)
     envResolver := generator.NewEnvironmentResolver()
 
     // 5. Wire command/query handlers
@@ -543,7 +549,7 @@ internal/
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ 3. Infrastructure: Generate docker-compose.yaml                         │
+│ 3. Infrastructure: Generate per-service compose files                   │
 │    ComposeGenerator.Generate(services, infraRequirements)               │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │

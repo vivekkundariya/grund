@@ -297,11 +297,12 @@ Output:
 View service logs.
 
 ```bash
-grund logs                  # All services
-grund logs user-service     # Specific service
-grund logs -f               # Follow mode (like tail -f)
-grund logs --tail 50        # Last 50 lines
-grund logs user-service -f  # Follow specific service
+grund logs                           # All services
+grund logs user-service              # Specific service
+grund logs user-service order-service  # Multiple services
+grund logs -f                        # Follow mode (like tail -f)
+grund logs --tail 50                 # Last 50 lines
+grund logs user-service -f           # Follow specific service
 ```
 
 ### `grund restart`

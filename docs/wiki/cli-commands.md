@@ -47,13 +47,14 @@ grund up [services...] [flags]
 
 **What it does:**
 1. Loads service configurations from `grund.yaml` files
-2. Builds dependency graph and detects circular dependencies
-3. Computes topological sort for startup order
+2. Builds dependency graph (circular dependencies are allowed)
+3. Loads all transitive dependencies
 4. Aggregates infrastructure requirements from all services
-5. Generates `docker-compose.generated.yaml`
+5. Generates per-service compose files in `~/.grund/tmp/`
 6. Starts infrastructure containers (postgres, mongodb, redis, localstack)
 7. Waits for infrastructure health checks
 8. Provisions resources (creates databases, SQS queues, SNS topics, S3 buckets)
+9. Starts all services in parallel (services handle reconnection)
 9. Starts application services in dependency order
 
 **Examples:**
@@ -139,11 +140,11 @@ grund status
 View logs from services.
 
 ```bash
-grund logs [service] [flags]
+grund logs [services...] [flags]
 ```
 
 **Arguments:**
-- `service` (optional): Specific service to view logs for. If omitted, shows aggregated logs.
+- `services` (optional): One or more services to view logs for. If omitted, shows aggregated logs from all services.
 
 **Flags:**
 | Flag | Short | Default | Description |
@@ -159,8 +160,14 @@ grund logs
 # View logs for a specific service
 grund logs user-service
 
+# View logs for multiple services
+grund logs user-service order-service
+
 # Follow logs in real-time
 grund logs user-service -f
+
+# Follow logs for multiple services
+grund logs user-service order-service -f
 
 # Show last 500 lines
 grund logs user-service --tail 500

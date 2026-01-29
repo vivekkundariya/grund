@@ -31,7 +31,7 @@ make run            # Run without building (go run)
 This is a DDD (Domain-Driven Design) Go project:
 
 ```
-cmd/grund/          # Entry point
+main.go             # Entry point
 internal/
   cli/              # Cobra commands (presentation layer)
   application/      # Use cases, commands, queries, ports
