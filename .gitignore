@@ -168,3 +168,6 @@ docker-compose.override.yaml
 # Local development data
 .localdev/
 .grund/
+
+# Git worktrees
+.worktrees/
