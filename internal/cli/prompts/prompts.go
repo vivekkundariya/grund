@@ -106,6 +106,7 @@ func Select(title string, options []string, defaultVal string) (string, error) {
 }
 
 // MultiSelect prompts user to select multiple options
+// Use Space to toggle, Enter to confirm
 func MultiSelect(title string, options []string) ([]string, error) {
 	var values []string
 
@@ -117,6 +118,7 @@ func MultiSelect(title string, options []string) ([]string, error) {
 
 	err := huh.NewMultiSelect[string]().
 		Title(title).
+		Description("Use ↑/↓ to navigate, Space to select, Enter to confirm").
 		Options(opts...).
 		Value(&values).
 		Run()
