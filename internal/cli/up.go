@@ -10,10 +10,10 @@ import (
 )
 
 var (
-	upNoDeps      bool
-	upInfraOnly   bool
-	upBuild       bool
-	upLocal       bool
+	upNoDeps    bool
+	upInfraOnly bool
+	upBuild     bool
+	upLocal     bool
 )
 
 var upCmd = &cobra.Command{

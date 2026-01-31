@@ -37,18 +37,18 @@ type EnvironmentResolver interface {
 type EnvironmentContext struct {
 	// Infrastructure contexts (postgres, redis, mongodb)
 	Infrastructure map[string]InfrastructureContext
-	
+
 	// Service contexts (other services this service depends on)
 	Services map[string]ServiceContext
-	
+
 	// Self context (the service being configured)
 	Self ServiceContext
-	
+
 	// AWS/LocalStack resources
 	SQS map[string]QueueContext
 	SNS map[string]TopicContext
 	S3  map[string]BucketContext
-	
+
 	// LocalStack endpoint
 	LocalStack LocalStackContext
 }

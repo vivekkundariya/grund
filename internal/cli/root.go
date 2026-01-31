@@ -12,7 +12,7 @@ import (
 var (
 	container      *wiring.Container
 	configResolver *config.ConfigResolver
-	
+
 	// CLI flags
 	configFile string
 	verbose    bool
@@ -88,11 +88,11 @@ func Execute() error {
 
 func init() {
 	// Global flags
-	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "", 
+	rootCmd.PersistentFlags().StringVarP(&configFile, "config", "c", "",
 		"Path to services registry file (default: auto-detect services.yaml)")
-	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, 
+	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Enable verbose output")
-	
+
 	// Add subcommands
 	rootCmd.AddCommand(upCmd)
 	rootCmd.AddCommand(downCmd)

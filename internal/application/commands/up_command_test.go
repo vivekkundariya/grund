@@ -92,11 +92,11 @@ func (m *mockOrchestrator) SetComposeFiles(files []string) {
 }
 
 type mockProvisioner struct {
-	provisionErr      error
-	postgresCalls     []*infrastructure.PostgresConfig
-	mongoCalls        []*infrastructure.MongoDBConfig
-	redisCalls        []*infrastructure.RedisConfig
-	localstackCalls   []infrastructure.InfrastructureRequirements
+	provisionErr    error
+	postgresCalls   []*infrastructure.PostgresConfig
+	mongoCalls      []*infrastructure.MongoDBConfig
+	redisCalls      []*infrastructure.RedisConfig
+	localstackCalls []infrastructure.InfrastructureRequirements
 }
 
 func (m *mockProvisioner) ProvisionPostgres(ctx context.Context, config *infrastructure.PostgresConfig) error {

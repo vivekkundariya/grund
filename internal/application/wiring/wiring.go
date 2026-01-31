@@ -18,7 +18,7 @@ import (
 // This follows the Dependency Inversion Principle
 type Container struct {
 	// Configuration
-	ConfigResolver   *appconfig.ConfigResolver
+	ConfigResolver    *appconfig.ConfigResolver
 	OrchestrationRoot string
 	ServicesPath      string
 
@@ -50,7 +50,7 @@ func NewContainer(orchestrationRoot string) (*Container, error) {
 	if _, err := os.Stat(servicesPath); os.IsNotExist(err) {
 		return nil, fmt.Errorf("services.yaml not found at %s", servicesPath)
 	}
-	
+
 	return NewContainerWithConfig(orchestrationRoot, servicesPath, nil)
 }
 

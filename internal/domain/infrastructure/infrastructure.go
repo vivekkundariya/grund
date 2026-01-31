@@ -4,20 +4,20 @@ package infrastructure
 type InfrastructureType string
 
 const (
-	InfrastructureTypePostgres InfrastructureType = "postgres"
-	InfrastructureTypeMongoDB  InfrastructureType = "mongodb"
-	InfrastructureTypeRedis    InfrastructureType = "redis"
+	InfrastructureTypePostgres   InfrastructureType = "postgres"
+	InfrastructureTypeMongoDB    InfrastructureType = "mongodb"
+	InfrastructureTypeRedis      InfrastructureType = "redis"
 	InfrastructureTypeLocalStack InfrastructureType = "localstack"
 )
 
 // InfrastructureRequirements aggregates all infrastructure needs
 type InfrastructureRequirements struct {
-	Postgres   *PostgresConfig
-	MongoDB    *MongoDBConfig
-	Redis      *RedisConfig
-	SQS        *SQSConfig
-	SNS        *SNSConfig
-	S3         *S3Config
+	Postgres *PostgresConfig
+	MongoDB  *MongoDBConfig
+	Redis    *RedisConfig
+	SQS      *SQSConfig
+	SNS      *SNSConfig
+	S3       *S3Config
 }
 
 // Has checks if a specific infrastructure type is required
@@ -99,12 +99,12 @@ type BucketConfig struct {
 // - Multi-instance resources (SQS, SNS, S3): Deduplicates by name
 func Aggregate(requirements ...InfrastructureRequirements) InfrastructureRequirements {
 	aggregated := InfrastructureRequirements{}
-	
+
 	// Track seen resources to avoid duplicates
 	seenQueues := make(map[string]bool)
 	seenTopics := make(map[string]bool)
 	seenBuckets := make(map[string]bool)
-	
+
 	for _, req := range requirements {
 		// Single-instance: first config wins, all services share one container
 		if req.Postgres != nil && aggregated.Postgres == nil {
@@ -116,7 +116,7 @@ func Aggregate(requirements ...InfrastructureRequirements) InfrastructureRequire
 		if req.Redis != nil && aggregated.Redis == nil {
 			aggregated.Redis = req.Redis
 		}
-		
+
 		// Aggregate SQS queues (deduplicate by name)
 		if req.SQS != nil {
 			if aggregated.SQS == nil {
@@ -129,7 +129,7 @@ func Aggregate(requirements ...InfrastructureRequirements) InfrastructureRequire
 				}
 			}
 		}
-		
+
 		// Aggregate SNS topics (deduplicate by name)
 		if req.SNS != nil {
 			if aggregated.SNS == nil {
@@ -142,7 +142,7 @@ func Aggregate(requirements ...InfrastructureRequirements) InfrastructureRequire
 				}
 			}
 		}
-		
+
 		// Aggregate S3 buckets (deduplicate by name)
 		if req.S3 != nil {
 			if aggregated.S3 == nil {
@@ -156,6 +156,6 @@ func Aggregate(requirements ...InfrastructureRequirements) InfrastructureRequire
 			}
 		}
 	}
-	
+
 	return aggregated
 }

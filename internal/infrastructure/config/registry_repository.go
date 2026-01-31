@@ -70,7 +70,7 @@ func (r *ServiceRegistryRepositoryImpl) GetAllServices() (map[service.ServiceNam
 type ServiceRegistryDTO struct {
 	Version      string                     `yaml:"version"`
 	Services     map[string]ServiceEntryDTO `yaml:"services"`
-	PathDefaults PathDefaultsDTO             `yaml:"path_defaults"`
+	PathDefaults PathDefaultsDTO            `yaml:"path_defaults"`
 }
 
 type ServiceEntryDTO struct {

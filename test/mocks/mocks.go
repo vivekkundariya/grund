@@ -14,7 +14,7 @@ type MockServiceRepository struct {
 	FindByNameFunc func(name service.ServiceName) (*service.Service, error)
 	FindAllFunc    func() ([]*service.Service, error)
 	SaveFunc       func(svc *service.Service) error
-	
+
 	// Track calls for assertions
 	FindByNameCalls []service.ServiceName
 	SaveCalls       []*service.Service
@@ -45,9 +45,9 @@ func (m *MockServiceRepository) Save(svc *service.Service) error {
 
 // MockServiceRegistryRepository is a mock implementation of ports.ServiceRegistryRepository
 type MockServiceRegistryRepository struct {
-	GetServicePathFunc  func(name service.ServiceName) (string, error)
-	GetAllServicesFunc  func() (map[service.ServiceName]ports.ServiceEntry, error)
-	
+	GetServicePathFunc func(name service.ServiceName) (string, error)
+	GetAllServicesFunc func() (map[service.ServiceName]ports.ServiceEntry, error)
+
 	// Track calls
 	GetServicePathCalls []service.ServiceName
 }
@@ -74,7 +74,7 @@ type MockContainerOrchestrator struct {
 	RestartServiceFunc   func(ctx context.Context, name service.ServiceName) error
 	GetServiceStatusFunc func(ctx context.Context, name service.ServiceName) (ports.ServiceStatus, error)
 	GetLogsFunc          func(ctx context.Context, name service.ServiceName, follow bool, tail int) (ports.LogStream, error)
-	
+
 	// Track calls
 	StartServicesCalls  [][]service.ServiceName
 	StopServicesCalls   int
@@ -129,7 +129,7 @@ type MockInfrastructureProvisioner struct {
 	ProvisionMongoDBFunc    func(ctx context.Context, config *infrastructure.MongoDBConfig) error
 	ProvisionRedisFunc      func(ctx context.Context, config *infrastructure.RedisConfig) error
 	ProvisionLocalStackFunc func(ctx context.Context, req infrastructure.InfrastructureRequirements) error
-	
+
 	// Track calls
 	ProvisionPostgresCalls   []*infrastructure.PostgresConfig
 	ProvisionMongoDBCalls    []*infrastructure.MongoDBConfig
@@ -172,7 +172,7 @@ func (m *MockInfrastructureProvisioner) ProvisionLocalStack(ctx context.Context,
 // MockComposeGenerator is a mock implementation of ports.ComposeGenerator
 type MockComposeGenerator struct {
 	GenerateFunc func(services []*service.Service, infra infrastructure.InfrastructureRequirements) (string, error)
-	
+
 	// Track calls
 	GenerateCalls []struct {
 		Services []*service.Service
@@ -195,7 +195,7 @@ func (m *MockComposeGenerator) Generate(services []*service.Service, infra infra
 type MockHealthChecker struct {
 	CheckHealthFunc    func(ctx context.Context, endpoint string, timeout int) error
 	WaitForHealthyFunc func(ctx context.Context, endpoint string, interval, timeout int, retries int) error
-	
+
 	// Track calls
 	CheckHealthCalls    []string
 	WaitForHealthyCalls []string
@@ -234,7 +234,7 @@ func (m *MockEnvironmentResolver) Resolve(envRefs map[string]string, context por
 type MockLogStream struct {
 	ReadFunc  func() ([]byte, error)
 	CloseFunc func() error
-	
+
 	logs   []byte
 	closed bool
 }

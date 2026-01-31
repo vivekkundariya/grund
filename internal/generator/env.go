@@ -24,8 +24,8 @@ func ResolveEnvRefs(envRefs map[string]string, context *EnvContext) (map[string]
 // EnvContext provides context for resolving environment variable references
 type EnvContext struct {
 	Infrastructure map[string]InfraContext
-	Services      map[string]ServiceContext
-	Self          ServiceContext
+	Services       map[string]ServiceContext
+	Self           ServiceContext
 }
 
 type InfraContext struct {
@@ -43,24 +43,24 @@ type ServiceContext struct {
 func resolveEnvValue(value string, context *EnvContext) (string, error) {
 	// Simple placeholder implementation
 	// TODO: Implement full variable resolution with ${...} syntax
-	
+
 	result := value
-	
+
 	// Replace infrastructure references
 	for infraName, infraCtx := range context.Infrastructure {
 		result = strings.ReplaceAll(result, fmt.Sprintf("${%s.host}", infraName), infraCtx.Host)
 		result = strings.ReplaceAll(result, fmt.Sprintf("${%s.port}", infraName), fmt.Sprintf("%d", infraCtx.Port))
 	}
-	
+
 	// Replace service references
 	for svcName, svcCtx := range context.Services {
 		result = strings.ReplaceAll(result, fmt.Sprintf("${%s.host}", svcName), svcCtx.Host)
 		result = strings.ReplaceAll(result, fmt.Sprintf("${%s.port}", svcName), fmt.Sprintf("%d", svcCtx.Port))
 	}
-	
+
 	// Replace self references
 	result = strings.ReplaceAll(result, "${self.host}", context.Self.Host)
 	result = strings.ReplaceAll(result, "${self.port}", fmt.Sprintf("%d", context.Self.Port))
-	
+
 	return result, nil
 }

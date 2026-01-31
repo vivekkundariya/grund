@@ -335,7 +335,7 @@ func TestAggregate_SQSQueues_Deduplication(t *testing.T) {
 	if result.SQS == nil {
 		t.Fatal("Aggregate() SQS is nil")
 	}
-	
+
 	// Should have 3 queues: shared-queue, service-a-queue, service-b-queue
 	// shared-queue should NOT be duplicated
 	if len(result.SQS.Queues) != 3 {

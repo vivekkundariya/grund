@@ -35,7 +35,7 @@ func NewConfigResolver(cliConfigPath string) (*ConfigResolver, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to load global config: %w", err)
 	}
-	
+
 	return &ConfigResolver{
 		CLIConfigPath: cliConfigPath,
 		GlobalConfig:  globalConfig,
@@ -127,7 +127,7 @@ func expandPath(path string) string {
 	if len(path) == 0 {
 		return path
 	}
-	
+
 	if path[0] == '~' {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -138,7 +138,7 @@ func expandPath(path string) string {
 		}
 		return home
 	}
-	
+
 	return path
 }
 
@@ -147,7 +147,7 @@ func (r *ConfigResolver) GetServicesBasePath() string {
 	if r.GlobalConfig.ServicesBasePath != "" {
 		return expandPath(r.GlobalConfig.ServicesBasePath)
 	}
-	
+
 	// Default to ~/projects
 	home, err := os.UserHomeDir()
 	if err != nil {

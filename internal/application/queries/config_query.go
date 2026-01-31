@@ -12,9 +12,9 @@ type ConfigQuery struct {
 
 // ConfigQueryHandler handles config queries
 type ConfigQueryHandler struct {
-	serviceRepo      ports.ServiceRepository
-	registryRepo     ports.ServiceRegistryRepository
-	envResolver      ports.EnvironmentResolver
+	serviceRepo  ports.ServiceRepository
+	registryRepo ports.ServiceRegistryRepository
+	envResolver  ports.EnvironmentResolver
 }
 
 // NewConfigQueryHandler creates a new config query handler
@@ -32,10 +32,10 @@ func NewConfigQueryHandler(
 
 // ResolvedConfig represents the resolved configuration
 type ResolvedConfig struct {
-	Service         *service.Service
-	Environment     map[string]string
-	Infrastructure  []string
-	Dependencies    []string
+	Service        *service.Service
+	Environment    map[string]string
+	Infrastructure []string
+	Dependencies   []string
 }
 
 // Handle executes the config query
@@ -97,8 +97,8 @@ func (h *ConfigQueryHandler) buildEnvironmentContext(svc *service.Service) ports
 
 	// Set self context
 	ctx.Self = ports.ServiceContext{
-		Host: svc.Name,
-		Port: svc.Port.Value(),
+		Host:   svc.Name,
+		Port:   svc.Port.Value(),
 		Config: make(map[string]interface{}),
 	}
 
