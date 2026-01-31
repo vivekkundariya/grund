@@ -243,12 +243,35 @@ grund reset -v --images
 
 ---
 
-### `grund config`
+### `grund init`
+
+Interactive setup wizard for first-time users.
+
+```bash
+grund init
+```
+
+**What it does:**
+Walks through a 3-step setup process:
+
+1. **Global config** - Creates `~/.grund/config.yaml`
+2. **Services setup** - Scans your projects folder and registers services
+3. **AI assistant skills** - Installs skills for Claude Code and/or Cursor
+
+**Examples:**
+```bash
+# Run the interactive setup wizard
+grund init
+```
+
+---
+
+### `grund config show`
 
 Show Grund configuration and service details.
 
 ```bash
-grund config [service]
+grund config show [service]
 ```
 
 **Arguments:**
@@ -259,7 +282,7 @@ Shows:
 - Services file location
 - Orchestration root directory
 - Global config path
-- Global settings (default paths, docker command, localstack endpoint)
+- Global settings with source (config vs default)
 - List of registered services
 
 **With service name:**
@@ -272,20 +295,44 @@ Shows:
 **Examples:**
 ```bash
 # Show overall Grund setup
-grund config
+grund config show
 
 # Show specific service configuration
-grund config user-service
+grund config show user-service
 ```
 
 ---
 
-### `grund init`
+### `grund config init`
+
+Initialize global Grund configuration.
+
+```bash
+grund config init
+```
+
+**What it does:**
+Creates `~/.grund/config.yaml` with default settings.
+
+**Global config options (all optional with defaults):**
+- `docker.compose_command`: Docker compose command (default: `docker compose`)
+- `localstack.endpoint`: LocalStack endpoint (default: `http://localhost:4566`)
+- `localstack.region`: AWS region for LocalStack (default: `us-east-1`)
+
+**Examples:**
+```bash
+# One-time setup for a new machine
+grund config init
+```
+
+---
+
+### `grund service init`
 
 Initialize Grund configuration for a new service.
 
 ```bash
-grund init
+grund service init
 ```
 
 **What it does:**
@@ -301,86 +348,64 @@ Interactive wizard that creates a `grund.yaml` file in the current directory.
 ```bash
 # Initialize in a service directory
 cd my-service
-grund init
-```
-
-**Sample output:**
-```
-Initializing Grund configuration...
-Press Enter to accept defaults shown in [brackets]
-
-Service name [my-service]:
-Service type (go/python/node) [go]:
-Port [8080]: 3000
-Dockerfile path [Dockerfile]:
-Health check endpoint [/health]: /api/health
-
---- Infrastructure Requirements ---
-Need PostgreSQL? [y/N]: y
-  Database name [my-service_db]:
-  Migrations path (leave empty if none): ./migrations
-Need MongoDB? [y/N]: n
-Need Redis? [y/N]: y
-Need SQS queues? [y/N]: y
-  Queue names (comma-separated): orders, notifications
-...
+grund service init
 ```
 
 ---
 
-### `grund setup`
-
-Initialize global Grund configuration.
-
-```bash
-grund setup
-```
-
-**What it does:**
-Creates `~/.grund/config.yaml` with default settings.
-
-**Global config options:**
-- `default_services_file`: Default filename to search for (default: `services.yaml`)
-- `default_orchestration_repo`: Default path to orchestration repository
-- `services_base_path`: Where to clone service repositories
-- `docker.compose_command`: Docker compose command (default: `docker compose`)
-- `localstack.endpoint`: LocalStack endpoint (default: `http://localhost:4566`)
-- `localstack.region`: AWS region for LocalStack (default: `us-east-1`)
-
-**Examples:**
-```bash
-# One-time setup for a new machine
-grund setup
-```
-
----
-
-### `grund add`
+### `grund service add`
 
 Add infrastructure to an existing service.
 
 ```bash
-grund add <infrastructure> [flags]
+grund service add <type> [name]
 ```
 
-**Supported infrastructure:**
-- `postgres` - PostgreSQL database
-- `mongodb` - MongoDB database
+**Supported types:**
+- `postgres <database>` - PostgreSQL database
+- `mongodb <database>` - MongoDB database
 - `redis` - Redis cache
-- `sqs` - SQS queues (with optional DLQ)
-- `sns` - SNS topics
-- `s3` - S3 buckets
+- `queue <name>` - SQS queue (with optional DLQ)
+- `topic <name>` - SNS topic
+- `bucket <name>` - S3 bucket
+- `tunnel <name>` - Tunnel (cloudflared/ngrok)
+- `dependency <service>` - Service dependency
 
 **Examples:**
 ```bash
 # Add PostgreSQL to current service
-grund add postgres --database mydb
+grund service add postgres mydb
 
 # Add SQS queue
-grund add sqs --queue orders --dlq
+grund service add queue orders
 
-# Add multiple S3 buckets
-grund add s3 --bucket uploads --bucket documents
+# Add S3 bucket
+grund service add bucket uploads
+
+# Add service dependency
+grund service add dependency user-service
+
+# Add tunnel for LocalStack
+grund service add tunnel localstack
+```
+
+---
+
+### `grund service validate`
+
+Validate `grund.yaml` configuration.
+
+```bash
+grund service validate
+```
+
+**What it does:**
+Checks the `grund.yaml` in the current directory for errors.
+
+**Examples:**
+```bash
+cd my-service
+grund service validate
 ```
 
 ---
