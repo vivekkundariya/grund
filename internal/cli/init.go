@@ -1,12 +1,10 @@
 package cli
 
 import (
-	"bufio"
 	"fmt"
-	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/vivekkundariya/grund/internal/cli/prompts"
 	"github.com/vivekkundariya/grund/internal/cli/skills"
 	"github.com/vivekkundariya/grund/internal/config"
 	"github.com/vivekkundariya/grund/internal/ui"
@@ -23,7 +21,7 @@ var initCmd = &cobra.Command{
 
 This command performs two main tasks:
   1. Creates or updates the global config at ~/.grund/config.yaml
-  2. Installs AI assistant skill files (CLAUDE.md, MCP configs) for supported tools
+  2. Installs AI assistant skill files for Claude Code and Cursor
 
 The AI skill setup helps AI coding assistants understand your Grund configuration
 and provide better assistance with local development orchestration.
@@ -39,20 +37,18 @@ func init() {
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
-	reader := bufio.NewReader(os.Stdin)
-
 	ui.Header("Grund Initialization")
 	fmt.Println()
 
 	// Step 1: Handle config initialization
-	if err := handleConfigInit(reader); err != nil {
+	if err := handleConfigInit(); err != nil {
 		return fmt.Errorf("config initialization failed: %w", err)
 	}
 
 	// Step 2: Handle AI skills installation (unless skipped)
 	if !initSkipAI {
 		fmt.Println()
-		if err := handleAISkillsInit(reader); err != nil {
+		if err := handleAISkillsInit(); err != nil {
 			return fmt.Errorf("AI skills setup failed: %w", err)
 		}
 	} else {
@@ -65,7 +61,7 @@ func runInit(cmd *cobra.Command, args []string) error {
 }
 
 // handleConfigInit handles the global config initialization.
-func handleConfigInit(reader *bufio.Reader) error {
+func handleConfigInit() error {
 	ui.Step("Initializing global configuration...")
 
 	configPath, _ := config.GetGlobalConfigPath()
@@ -73,7 +69,12 @@ func handleConfigInit(reader *bufio.Reader) error {
 	if config.GlobalConfigExists() {
 		ui.Infof("Global config already exists at: %s", configPath)
 
-		if promptYesNo(reader, "Do you want to re-initialize the config?", false) {
+		reinit, err := prompts.Confirm("Do you want to re-initialize the config?", false)
+		if err != nil {
+			return fmt.Errorf("prompt failed: %w", err)
+		}
+
+		if reinit {
 			if err := config.ForceInitGlobalConfig(); err != nil {
 				return fmt.Errorf("failed to re-initialize config: %w", err)
 			}
@@ -92,7 +93,7 @@ func handleConfigInit(reader *bufio.Reader) error {
 }
 
 // handleAISkillsInit handles the AI assistant skills installation.
-func handleAISkillsInit(reader *bufio.Reader) error {
+func handleAISkillsInit() error {
 	ui.Step("Setting up AI assistant skills...")
 
 	// Check what's already installed
@@ -113,7 +114,12 @@ func handleAISkillsInit(reader *bufio.Reader) error {
 	}
 
 	// Ask if user wants to set up skills
-	if !promptYesNo(reader, "Would you like to set up AI assistant skills for Grund?", true) {
+	setupSkills, err := prompts.Confirm("Would you like to set up AI assistant skills for Grund?", true)
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+
+	if !setupSkills {
 		ui.Infof("Skipping AI assistant setup")
 		return nil
 	}
@@ -123,9 +129,13 @@ func handleAISkillsInit(reader *bufio.Reader) error {
 
 	if !claudeInstalled && !cursorInstalled {
 		// Both available - ask which
-		choice := promptChoice(reader, "Which AI assistant?", []string{"Claude", "Cursor", "Both"}, "Both")
+		choice, err := prompts.Select("Which AI assistant?", []string{"Claude Code", "Cursor", "Both"}, "Both")
+		if err != nil {
+			return fmt.Errorf("prompt failed: %w", err)
+		}
+
 		switch choice {
-		case "Claude":
+		case "Claude Code":
 			toInstall = []skills.AIAssistant{skills.Claude}
 		case "Cursor":
 			toInstall = []skills.AIAssistant{skills.Cursor}
@@ -148,55 +158,4 @@ func handleAISkillsInit(reader *bufio.Reader) error {
 	}
 
 	return nil
-}
-
-// promptYesNo prompts the user with a yes/no question and returns their choice.
-// The question should not include the [y/n] suffix - it will be added automatically.
-// Shows [Y/n] if defaultVal is true, [y/N] if false.
-// Returns defaultVal on empty input or error.
-func promptYesNo(reader *bufio.Reader, question string, defaultVal bool) bool {
-	defaultStr := "y/N"
-	if defaultVal {
-		defaultStr = "Y/n"
-	}
-
-	fmt.Printf("%s [%s]: ", question, defaultStr)
-
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		return defaultVal
-	}
-
-	input = strings.ToLower(strings.TrimSpace(input))
-	if input == "" {
-		return defaultVal
-	}
-
-	return input == "y" || input == "yes"
-}
-
-// promptChoice prompts the user to select from a list of choices.
-// Returns the selected string value, or defaultVal on empty/invalid input.
-func promptChoice(reader *bufio.Reader, question string, choices []string, defaultVal string) string {
-	fmt.Printf("%s (%s) [%s]: ", question, strings.Join(choices, "/"), defaultVal)
-
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		return defaultVal
-	}
-
-	input = strings.TrimSpace(input)
-	if input == "" {
-		return defaultVal
-	}
-
-	// Validate choice
-	for _, c := range choices {
-		if input == c {
-			return input
-		}
-	}
-
-	fmt.Printf("  Invalid choice, using default: %s\n", defaultVal)
-	return defaultVal
 }

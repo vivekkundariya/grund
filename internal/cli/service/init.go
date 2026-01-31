@@ -1,15 +1,14 @@
 package service
 
 import (
-	"bufio"
 	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/vivekkundariya/grund/internal/cli/prompts"
 	"github.com/vivekkundariya/grund/internal/ui"
 	"gopkg.in/yaml.v3"
 )
@@ -72,63 +71,125 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("grund.yaml already exists in %s", wd)
 	}
 
-	fmt.Println("Initializing Grund configuration...")
-	fmt.Println("Press Enter to accept defaults shown in [brackets]")
+	ui.Header("Grund Service Configuration")
 	fmt.Println()
 
-	reader := bufio.NewReader(os.Stdin)
 	cfg := &initConfig{}
 
 	// Service basics
 	defaultName := filepath.Base(wd)
-	cfg.Name = prompt(reader, "Service name", defaultName)
-	cfg.Type = promptChoice(reader, "Service type", []string{"go", "python", "node"}, "go")
-	cfg.Port = promptInt(reader, "Port", 8080)
+	cfg.Name, err = prompts.Text("Service name", defaultName)
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+
+	cfg.Type, err = prompts.Select("Service type", []string{"go", "python", "node"}, "go")
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+
+	cfg.Port, err = prompts.Int("Port", 8080)
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
 
 	// Build config
-	cfg.Dockerfile = prompt(reader, "Dockerfile path", "Dockerfile")
-	cfg.HealthPath = prompt(reader, "Health check endpoint", "/health")
+	cfg.Dockerfile, err = prompts.Text("Dockerfile path", "Dockerfile")
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+
+	cfg.HealthPath, err = prompts.Text("Health check endpoint", "/health")
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
 
 	// Infrastructure
-	fmt.Println("\n--- Infrastructure Requirements ---")
+	fmt.Println()
+	ui.Step("Infrastructure Requirements")
 
-	if promptYesNo(reader, "Need PostgreSQL?", false) {
-		dbName := prompt(reader, "  Database name", cfg.Name+"_db")
-		migrations := prompt(reader, "  Migrations path (leave empty if none)", "")
+	needPostgres, err := prompts.Confirm("Need PostgreSQL?", false)
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+	if needPostgres {
+		dbName, err := prompts.Text("Database name", cfg.Name+"_db")
+		if err != nil {
+			return fmt.Errorf("prompt failed: %w", err)
+		}
+		migrations, err := prompts.Text("Migrations path (leave empty if none)", "")
+		if err != nil {
+			return fmt.Errorf("prompt failed: %w", err)
+		}
 		cfg.Postgres = &postgresInit{Database: dbName, Migrations: migrations}
 	}
 
-	if promptYesNo(reader, "Need MongoDB?", false) {
-		dbName := prompt(reader, "  Database name", cfg.Name+"_db")
+	needMongo, err := prompts.Confirm("Need MongoDB?", false)
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+	if needMongo {
+		dbName, err := prompts.Text("Database name", cfg.Name+"_db")
+		if err != nil {
+			return fmt.Errorf("prompt failed: %w", err)
+		}
 		cfg.MongoDB = &mongoInit{Database: dbName}
 	}
 
-	cfg.Redis = promptYesNo(reader, "Need Redis?", false)
+	cfg.Redis, err = prompts.Confirm("Need Redis?", false)
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
 
-	if promptYesNo(reader, "Need SQS queues?", false) {
-		queues := prompt(reader, "  Queue names (comma-separated)", "")
+	needSQS, err := prompts.Confirm("Need SQS queues?", false)
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+	if needSQS {
+		queues, err := prompts.Text("Queue names (comma-separated)", "")
+		if err != nil {
+			return fmt.Errorf("prompt failed: %w", err)
+		}
 		if queues != "" {
 			cfg.SQSQueues = splitAndTrim(queues)
 		}
 	}
 
-	if promptYesNo(reader, "Need SNS topics?", false) {
-		topics := prompt(reader, "  Topic names (comma-separated)", "")
+	needSNS, err := prompts.Confirm("Need SNS topics?", false)
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+	if needSNS {
+		topics, err := prompts.Text("Topic names (comma-separated)", "")
+		if err != nil {
+			return fmt.Errorf("prompt failed: %w", err)
+		}
 		if topics != "" {
 			cfg.SNSTopics = splitAndTrim(topics)
 		}
 	}
 
-	if promptYesNo(reader, "Need S3 buckets?", false) {
-		buckets := prompt(reader, "  Bucket names (comma-separated)", "")
+	needS3, err := prompts.Confirm("Need S3 buckets?", false)
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+	if needS3 {
+		buckets, err := prompts.Text("Bucket names (comma-separated)", "")
+		if err != nil {
+			return fmt.Errorf("prompt failed: %w", err)
+		}
 		if buckets != "" {
 			cfg.S3Buckets = splitAndTrim(buckets)
 		}
 	}
 
 	// Service dependencies
-	fmt.Println("\n--- Service Dependencies ---")
-	deps := prompt(reader, "Dependent services (comma-separated, or empty)", "")
+	fmt.Println()
+	ui.Step("Service Dependencies")
+	deps, err := prompts.Text("Dependent services (comma-separated, or empty)", "")
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
 	if deps != "" {
 		cfg.Services = splitAndTrim(deps)
 	}
@@ -137,12 +198,18 @@ func runInit(cmd *cobra.Command, args []string) error {
 	yamlContent := generateGrundYAML(cfg)
 
 	// Preview
-	fmt.Println("\n--- Generated grund.yaml ---")
+	fmt.Println()
+	ui.Step("Generated grund.yaml")
+	fmt.Println()
 	fmt.Println(yamlContent)
-	fmt.Println("---")
 
-	if !promptYesNo(reader, "Write this configuration?", true) {
-		fmt.Println("Aborted.")
+	writeConfig, err := prompts.Confirm("Write this configuration?", true)
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+
+	if !writeConfig {
+		ui.Infof("Aborted.")
 		return nil
 	}
 
@@ -151,87 +218,14 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to write grund.yaml: %w", err)
 	}
 
-	fmt.Printf("\nCreated: %s\n", configPath)
-	fmt.Println("\nNext steps:")
+	fmt.Println()
+	ui.Successf("Created: %s", configPath)
+	fmt.Println()
+	fmt.Println("Next steps:")
 	fmt.Println("  1. Add this service to your services.yaml registry")
 	fmt.Println("  2. Run: grund up " + cfg.Name)
 
 	return nil
-}
-
-// prompt asks for input with a default value
-func prompt(reader *bufio.Reader, question, defaultVal string) string {
-	if defaultVal != "" {
-		fmt.Printf("%s [%s]: ", question, defaultVal)
-	} else {
-		fmt.Printf("%s: ", question)
-	}
-
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-
-	if input == "" {
-		return defaultVal
-	}
-	return input
-}
-
-// promptInt asks for an integer with a default value
-func promptInt(reader *bufio.Reader, question string, defaultVal int) int {
-	fmt.Printf("%s [%d]: ", question, defaultVal)
-
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-
-	if input == "" {
-		return defaultVal
-	}
-
-	val, err := strconv.Atoi(input)
-	if err != nil {
-		fmt.Printf("  Invalid number, using default: %d\n", defaultVal)
-		return defaultVal
-	}
-	return val
-}
-
-// promptYesNo asks a yes/no question
-func promptYesNo(reader *bufio.Reader, question string, defaultVal bool) bool {
-	defaultStr := "y/N"
-	if defaultVal {
-		defaultStr = "Y/n"
-	}
-
-	fmt.Printf("%s [%s]: ", question, defaultStr)
-
-	input, _ := reader.ReadString('\n')
-	input = strings.ToLower(strings.TrimSpace(input))
-
-	if input == "" {
-		return defaultVal
-	}
-
-	return input == "y" || input == "yes"
-}
-
-// promptChoice asks user to pick from choices
-func promptChoice(reader *bufio.Reader, question string, choices []string, defaultVal string) string {
-	fmt.Printf("%s (%s) [%s]: ", question, strings.Join(choices, "/"), defaultVal)
-
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-
-	if input == "" {
-		return defaultVal
-	}
-
-	// Validate choice
-	if slices.Contains(choices, input) {
-		return input
-	}
-
-	fmt.Printf("  Invalid choice, using default: %s\n", defaultVal)
-	return defaultVal
 }
 
 // splitAndTrim splits a comma-separated string and trims whitespace
