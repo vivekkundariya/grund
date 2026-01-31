@@ -343,3 +343,38 @@ func TestEnvironmentResolver_NoPlaceholders(t *testing.T) {
 		t.Errorf("NUMBER = %q, want '12345'", resolved["NUMBER"])
 	}
 }
+
+func TestResolveTunnelPlaceholders(t *testing.T) {
+	resolver := NewEnvironmentResolver()
+
+	ctx := ports.NewDefaultEnvironmentContext()
+	ctx.Tunnel["localstack"] = ports.TunnelContext{
+		Name:      "localstack",
+		PublicURL: "https://abc-xyz.trycloudflare.com",
+	}
+	ctx.Tunnel["api"] = ports.TunnelContext{
+		Name:      "api",
+		PublicURL: "https://def-123.trycloudflare.com",
+	}
+
+	envRefs := map[string]string{
+		"PUBLIC_S3_ENDPOINT": "${tunnel.localstack.url}",
+		"PUBLIC_API_URL":     "${tunnel.api.url}",
+		"PUBLIC_S3_HOST":     "${tunnel.localstack.host}",
+	}
+
+	resolved, err := resolver.Resolve(envRefs, ctx)
+	if err != nil {
+		t.Fatalf("failed to resolve: %v", err)
+	}
+
+	if resolved["PUBLIC_S3_ENDPOINT"] != "https://abc-xyz.trycloudflare.com" {
+		t.Errorf("expected https://abc-xyz.trycloudflare.com, got %s", resolved["PUBLIC_S3_ENDPOINT"])
+	}
+	if resolved["PUBLIC_API_URL"] != "https://def-123.trycloudflare.com" {
+		t.Errorf("expected https://def-123.trycloudflare.com, got %s", resolved["PUBLIC_API_URL"])
+	}
+	if resolved["PUBLIC_S3_HOST"] != "abc-xyz.trycloudflare.com" {
+		t.Errorf("expected abc-xyz.trycloudflare.com, got %s", resolved["PUBLIC_S3_HOST"])
+	}
+}
