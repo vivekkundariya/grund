@@ -719,3 +719,176 @@ grund config my-service
 3. **Health Checks**: Choose an appropriate health check for the Docker container. For ScyllaDB, checking CQL connectivity is recommended.
 
 4. **Environment Variables**: Follow the `${infra.property}` pattern for consistency. Use `${self.infra.property}` for service-specific config like keyspace names.
+
+---
+
+## Adding a New Tunnel Provider
+
+Tunnel providers (like cloudflared, ngrok) expose local infrastructure to the internet. This is useful for webhooks, presigned URLs, or external callbacks.
+
+### Files to Modify
+
+#### 1. Domain Layer - Tunnel Types
+
+**`internal/domain/infrastructure/tunnel.go`**
+
+The domain already supports multiple providers via the `Provider` field:
+
+```go
+type TunnelRequirement struct {
+    Provider string                      // "cloudflared" or "ngrok"
+    Targets  []TunnelTargetRequirement
+}
+```
+
+No changes needed unless adding provider-specific config.
+
+#### 2. Tunnel Manager Interface
+
+**`internal/application/ports/tunnel.go`**
+
+The interface is provider-agnostic:
+
+```go
+type TunnelManager interface {
+    Start(ctx context.Context, req *infrastructure.TunnelRequirement) (map[string]TunnelContext, error)
+    Stop(ctx context.Context) error
+}
+```
+
+#### 3. Implement the New Provider
+
+**`internal/infrastructure/tunnel/<provider>_tunnel.go`** (NEW FILE)
+
+Example for ngrok:
+
+```go
+package tunnel
+
+import (
+    "context"
+    "fmt"
+    "os/exec"
+    "regexp"
+
+    "github.com/vivekkundariya/grund/internal/application/ports"
+    "github.com/vivekkundariya/grund/internal/domain/infrastructure"
+)
+
+type NgrokTunnelManager struct {
+    cmd *exec.Cmd
+}
+
+func NewNgrokTunnelManager() ports.TunnelManager {
+    return &NgrokTunnelManager{}
+}
+
+func (m *NgrokTunnelManager) Start(ctx context.Context, req *infrastructure.TunnelRequirement) (map[string]ports.TunnelContext, error) {
+    tunnels := make(map[string]ports.TunnelContext)
+
+    for _, target := range req.Targets {
+        localAddr := fmt.Sprintf("%s:%s", target.Host, target.Port)
+
+        // Start ngrok tunnel
+        cmd := exec.CommandContext(ctx, "ngrok", "http", localAddr, "--log", "stdout")
+        // ... capture output and parse public URL
+
+        // Parse URL from ngrok output (format varies)
+        // Example: "url=https://abc123.ngrok.io"
+        publicURL := parseNgrokURL(output)
+
+        tunnels[target.Name] = ports.TunnelContext{
+            Name:      target.Name,
+            LocalAddr: localAddr,
+            PublicURL: publicURL,
+        }
+    }
+
+    return tunnels, nil
+}
+
+func (m *NgrokTunnelManager) Stop(ctx context.Context) error {
+    if m.cmd != nil && m.cmd.Process != nil {
+        return m.cmd.Process.Kill()
+    }
+    return nil
+}
+```
+
+#### 4. Provider Factory
+
+**`internal/infrastructure/tunnel/factory.go`**
+
+Create a factory to select the right provider:
+
+```go
+package tunnel
+
+import (
+    "fmt"
+
+    "github.com/vivekkundariya/grund/internal/application/ports"
+)
+
+func NewTunnelManager(provider string) (ports.TunnelManager, error) {
+    switch provider {
+    case "cloudflared":
+        return NewCloudflaredTunnelManager(), nil
+    case "ngrok":
+        return NewNgrokTunnelManager(), nil
+    default:
+        return nil, fmt.Errorf("unsupported tunnel provider: %s", provider)
+    }
+}
+```
+
+#### 5. Update Wiring
+
+**`internal/application/wiring/wiring.go`**
+
+Use the factory or hardcode default:
+
+```go
+// Create tunnel manager based on provider in config
+tunnelManager, _ := tunnel.NewTunnelManager("cloudflared")
+```
+
+### Provider-Specific Considerations
+
+| Provider | Auth Required | Multi-Tunnel | Output Format |
+|----------|---------------|--------------|---------------|
+| cloudflared | No (quick tunnels) | Sequential | `INF +url=https://...` |
+| ngrok | Yes (free tier limited) | Via config file | JSON or `url=https://...` |
+| localtunnel | No | Sequential | `your url is: https://...` |
+
+### Testing New Providers
+
+1. **Unit test** the URL parsing logic
+2. **Integration test** with actual tunnel binary
+3. **E2E test** with a service using `${tunnel.<name>.url}`
+
+```yaml
+# test/fixtures/services/tunnel-test/grund.yaml
+requires:
+  infrastructure:
+    tunnel:
+      provider: ngrok  # or your new provider
+      targets:
+        - name: localstack
+          host: localhost
+          port: "4566"
+
+env_refs:
+  PUBLIC_ENDPOINT: "${tunnel.localstack.url}"
+```
+
+### Environment Variable Resolution
+
+Tunnel URLs are resolved via the `${tunnel.<name>.<property>}` pattern:
+
+| Placeholder | Description |
+|-------------|-------------|
+| `${tunnel.<name>.url}` | Full public URL (https://...) |
+| `${tunnel.<name>.host}` | Just the hostname |
+
+The resolver in `env_resolver.go` handles this automatically once `TunnelContext` is populated.

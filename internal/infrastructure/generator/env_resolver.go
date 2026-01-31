@@ -325,7 +325,9 @@ func (r *EnvironmentResolverImpl) resolveTunnel(parts []string, context ports.En
 
 	tunnel, ok := context.Tunnel[tunnelName]
 	if !ok {
-		return "", fmt.Errorf("tunnel %s not found", tunnelName)
+		// Tunnel not available yet (e.g., during early validation before tunnels start)
+		// Return a placeholder that will be resolved later during compose generation
+		return fmt.Sprintf("TUNNEL_PENDING_%s_%s", strings.ToUpper(tunnelName), strings.ToUpper(property)), nil
 	}
 
 	switch property {

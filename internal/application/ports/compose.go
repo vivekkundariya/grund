@@ -26,6 +26,8 @@ func (c *ComposeFileSet) AllPaths() []string {
 // ComposeGenerator defines the interface for Docker Compose generation
 type ComposeGenerator interface {
 	Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (*ComposeFileSet, error)
+	// GenerateWithTunnels generates compose with tunnel context for env_refs resolution
+	GenerateWithTunnels(services []*service.Service, infra infrastructure.InfrastructureRequirements, tunnelCtx map[string]TunnelContext) (*ComposeFileSet, error)
 }
 
 // EnvironmentResolver defines the interface for environment variable resolution

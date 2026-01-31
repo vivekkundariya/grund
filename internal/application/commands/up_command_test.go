@@ -43,6 +43,10 @@ func (m *mockServiceRepository) Save(svc *service.Service) error {
 	return nil
 }
 
+func (m *mockServiceRepository) ExtractTunnelConfig(name service.ServiceName) (*infrastructure.TunnelRequirement, error) {
+	return nil, nil
+}
+
 type mockRegistryRepository struct{}
 
 func (m *mockRegistryRepository) GetServicePath(name service.ServiceName) (string, error) {
@@ -131,6 +135,10 @@ func (m *mockComposeGenerator) Generate(services []*service.Service, infra infra
 		InfrastructurePath: "/tmp/infrastructure/docker-compose.yaml",
 		ServicePaths:       map[string]string{},
 	}, nil
+}
+
+func (m *mockComposeGenerator) GenerateWithTunnels(services []*service.Service, infra infrastructure.InfrastructureRequirements, tunnelCtx map[string]ports.TunnelContext) (*ports.ComposeFileSet, error) {
+	return m.Generate(services, infra)
 }
 
 type mockHealthChecker struct{}

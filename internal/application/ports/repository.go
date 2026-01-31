@@ -1,6 +1,7 @@
 package ports
 
 import (
+	"github.com/vivekkundariya/grund/internal/domain/infrastructure"
 	"github.com/vivekkundariya/grund/internal/domain/service"
 )
 
@@ -10,6 +11,9 @@ type ServiceRepository interface {
 	FindByName(name service.ServiceName) (*service.Service, error)
 	FindAll() ([]*service.Service, error)
 	Save(svc *service.Service) error
+	// ExtractTunnelConfig extracts just the tunnel configuration without full service loading
+	// This is used to start infrastructure tunnels before loading services
+	ExtractTunnelConfig(name service.ServiceName) (*infrastructure.TunnelRequirement, error)
 }
 
 // ServiceRegistryRepository defines the interface for service registry

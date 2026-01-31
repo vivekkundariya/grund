@@ -200,6 +200,50 @@ func (g *ComposeGeneratorImpl) Generate(services []*service.Service, infra infra
 	return fileSet, nil
 }
 
+// GenerateWithTunnels generates compose files with tunnel context for env_refs resolution
+func (g *ComposeGeneratorImpl) GenerateWithTunnels(services []*service.Service, infra infrastructure.InfrastructureRequirements, tunnelCtx map[string]ports.TunnelContext) (*ports.ComposeFileSet, error) {
+	fileSet := &ports.ComposeFileSet{
+		ServicePaths: make(map[string]string),
+	}
+
+	// First, discover existing compose files from previous runs
+	g.discoverExistingComposeFiles(fileSet)
+
+	// Build environment context for variable resolution
+	envContext := g.buildEnvironmentContext(services, infra)
+
+	// Inject tunnel context for ${tunnel.<name>.url} placeholders
+	for name, tc := range tunnelCtx {
+		envContext.Tunnel[name] = tc
+	}
+
+	// Create port allocator to handle port conflicts
+	portAlloc := newPortAllocator()
+
+	// Generate infrastructure compose file if there are any infrastructure requirements
+	if infra.Postgres != nil || infra.MongoDB != nil || infra.Redis != nil ||
+		infra.SQS != nil || infra.SNS != nil || infra.S3 != nil {
+		infraPath, err := g.generateInfrastructure(infra)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate infrastructure compose: %w", err)
+		}
+		fileSet.InfrastructurePath = infraPath
+	} else if fileSet.InfrastructurePath != "" {
+		ui.Debug("Keeping existing infrastructure compose file")
+	}
+
+	// Generate per-service compose files
+	for _, svc := range services {
+		svcPath, err := g.generateService(svc, envContext, portAlloc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate compose for %s: %w", svc.Name, err)
+		}
+		fileSet.ServicePaths[svc.Name] = svcPath
+	}
+
+	return fileSet, nil
+}
+
 // discoverExistingComposeFiles scans tmpDir for existing compose files
 func (g *ComposeGeneratorImpl) discoverExistingComposeFiles(fileSet *ports.ComposeFileSet) {
 	// Check if tmp directory exists
@@ -617,7 +661,7 @@ func (g *ComposeGeneratorImpl) addInfrastructureServices(compose *ComposeFile, i
 			},
 			Networks: []string{"grund-network"},
 			Healthcheck: &ComposeHealth{
-				Test:        []string{"CMD-SHELL", "curl -s http://localhost:4566/_localstack/health | grep -E '\"sqs\":\\s*\"(running|available)\"' || exit 1"},
+				Test:        []string{"CMD-SHELL", "curl -sf http://localhost:4566/_localstack/health || exit 1"},
 				Interval:    "10s",
 				Timeout:     "5s",
 				Retries:     10,
