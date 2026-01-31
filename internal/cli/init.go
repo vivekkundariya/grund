@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/vivekkundariya/grund/internal/cli/skills"
 	"github.com/vivekkundariya/grund/internal/config"
 	"github.com/vivekkundariya/grund/internal/ui"
 )
@@ -91,10 +92,61 @@ func handleConfigInit(reader *bufio.Reader) error {
 }
 
 // handleAISkillsInit handles the AI assistant skills installation.
-// TODO: Implement actual skill file installation
 func handleAISkillsInit(reader *bufio.Reader) error {
 	ui.Step("Setting up AI assistant skills...")
-	// Stub implementation - will be implemented in Task 4
+
+	// Check what's already installed
+	claudeInstalled := skills.IsInstalled(skills.Claude)
+	cursorInstalled := skills.IsInstalled(skills.Cursor)
+
+	if claudeInstalled && cursorInstalled {
+		ui.Successf("AI assistant skills already configured for Claude Code and Cursor")
+		return nil
+	}
+
+	// Report already installed
+	if claudeInstalled {
+		ui.Infof("Claude Code skill already installed")
+	}
+	if cursorInstalled {
+		ui.Infof("Cursor skill already installed")
+	}
+
+	// Ask if user wants to set up skills
+	if !promptYesNo(reader, "Would you like to set up AI assistant skills for Grund?", true) {
+		ui.Infof("Skipping AI assistant setup")
+		return nil
+	}
+
+	// Determine which assistants to offer
+	var toInstall []skills.AIAssistant
+
+	if !claudeInstalled && !cursorInstalled {
+		// Both available - ask which
+		choice := promptChoice(reader, "Which AI assistant?", []string{"Claude", "Cursor", "Both"}, "Both")
+		switch choice {
+		case "Claude":
+			toInstall = []skills.AIAssistant{skills.Claude}
+		case "Cursor":
+			toInstall = []skills.AIAssistant{skills.Cursor}
+		default: // "Both"
+			toInstall = []skills.AIAssistant{skills.Claude, skills.Cursor}
+		}
+	} else if !claudeInstalled {
+		toInstall = []skills.AIAssistant{skills.Claude}
+	} else {
+		toInstall = []skills.AIAssistant{skills.Cursor}
+	}
+
+	// Install selected assistants
+	for _, assistant := range toInstall {
+		if err := skills.Install(assistant); err != nil {
+			return fmt.Errorf("failed to install %s skill: %w", skills.AssistantName(assistant), err)
+		}
+		path, _ := skills.SkillPaths(assistant)
+		ui.Successf("%s skill installed at: %s", skills.AssistantName(assistant), path)
+	}
+
 	return nil
 }
 
