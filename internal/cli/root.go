@@ -104,6 +104,9 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Enable verbose output")
 
+	// Initialization
+	rootCmd.AddCommand(initCmd)
+
 	// Daily operations (root level - most frequently used)
 	rootCmd.AddCommand(upCmd)
 	rootCmd.AddCommand(downCmd)
