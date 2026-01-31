@@ -143,12 +143,8 @@ func expandPath(path string) string {
 }
 
 // GetServicesBasePath returns the base path for cloning services
+// Default: ~/projects
 func (r *ConfigResolver) GetServicesBasePath() string {
-	if r.GlobalConfig.ServicesBasePath != "" {
-		return expandPath(r.GlobalConfig.ServicesBasePath)
-	}
-
-	// Default to ~/projects
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "./services"
@@ -158,15 +154,15 @@ func (r *ConfigResolver) GetServicesBasePath() string {
 
 // GetDockerComposeCommand returns the docker compose command
 func (r *ConfigResolver) GetDockerComposeCommand() string {
-	return r.GlobalConfig.Docker.ComposeCommand
+	return GetDockerComposeCommand()
 }
 
 // GetLocalStackEndpoint returns the LocalStack endpoint
 func (r *ConfigResolver) GetLocalStackEndpoint() string {
-	return r.GlobalConfig.LocalStack.Endpoint
+	return GetLocalStackEndpoint()
 }
 
 // GetLocalStackRegion returns the LocalStack AWS region
 func (r *ConfigResolver) GetLocalStackRegion() string {
-	return r.GlobalConfig.LocalStack.Region
+	return GetLocalStackRegion()
 }

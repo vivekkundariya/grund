@@ -64,33 +64,42 @@ func showSetupInfo() error {
 	fmt.Println()
 
 	// Show global config values
-	if configResolver.GlobalConfig != nil {
-		gc := configResolver.GlobalConfig
+	fmt.Println("  Global Settings")
+	fmt.Println("  " + strings.Repeat("─", 40))
 
-		fmt.Println("  Global Settings")
-		fmt.Println("  " + strings.Repeat("─", 40))
+	gc := configResolver.GlobalConfig
 
-		t := table.NewWriter()
-		t.SetOutputMirror(os.Stdout)
-		t.SetStyle(table.StyleRounded)
-		t.AppendHeader(table.Row{"Setting", "Value"})
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleRounded)
+	t.AppendHeader(table.Row{"Setting", "Value", "Source"})
 
-		if gc.DefaultServicesFile != "" {
-			t.AppendRow(table.Row{"default_services_file", gc.DefaultServicesFile})
-		}
-		if gc.DefaultOrchestrationRepo != "" {
-			t.AppendRow(table.Row{"default_orchestration_repo", gc.DefaultOrchestrationRepo})
-		}
-		if gc.ServicesBasePath != "" {
-			t.AppendRow(table.Row{"services_base_path", gc.ServicesBasePath})
-		}
-		t.AppendRow(table.Row{"docker.compose_command", gc.Docker.ComposeCommand})
-		t.AppendRow(table.Row{"localstack.endpoint", gc.LocalStack.Endpoint})
-		t.AppendRow(table.Row{"localstack.region", gc.LocalStack.Region})
-
-		t.Render()
-		fmt.Println()
+	// Docker compose command
+	dockerCmd := gc.GetDockerComposeCommand()
+	dockerSource := "default"
+	if gc.Docker != nil && gc.Docker.ComposeCommand != "" {
+		dockerSource = "config"
 	}
+	t.AppendRow(table.Row{"docker.compose_command", dockerCmd, dockerSource})
+
+	// LocalStack endpoint
+	lsEndpoint := gc.GetLocalStackEndpoint()
+	lsEndpointSource := "default"
+	if gc.LocalStack != nil && gc.LocalStack.Endpoint != "" {
+		lsEndpointSource = "config"
+	}
+	t.AppendRow(table.Row{"localstack.endpoint", lsEndpoint, lsEndpointSource})
+
+	// LocalStack region
+	lsRegion := gc.GetLocalStackRegion()
+	lsRegionSource := "default"
+	if gc.LocalStack != nil && gc.LocalStack.Region != "" {
+		lsRegionSource = "config"
+	}
+	t.AppendRow(table.Row{"localstack.region", lsRegion, lsRegionSource})
+
+	t.Render()
+	fmt.Println()
 
 	// Get registered services
 	container := shared.Container

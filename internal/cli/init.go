@@ -109,26 +109,11 @@ func handleServicesInit() error {
 	// Ask for projects folder
 	defaultFolder := filepath.Join(home, "projects")
 
-	// Try to detect from existing config
-	if cfg, err := config.LoadGlobalConfig(); err == nil && cfg.ServicesBasePath != "" {
-		defaultFolder = expandPath(cfg.ServicesBasePath)
-	}
-
 	projectsFolder, err := prompts.Text("Projects folder (where your services live)", defaultFolder)
 	if err != nil {
 		return fmt.Errorf("prompt failed: %w", err)
 	}
 	projectsFolder = expandPath(projectsFolder)
-
-	// Update config with services base path
-	cfg, err := config.LoadGlobalConfig()
-	if err != nil {
-		cfg = config.DefaultGlobalConfig()
-	}
-	cfg.ServicesBasePath = contractPath(projectsFolder)
-	if err := config.SaveGlobalConfig(cfg); err != nil {
-		return fmt.Errorf("failed to save config: %w", err)
-	}
 
 	// Check if folder exists
 	if !dirExists(projectsFolder) {

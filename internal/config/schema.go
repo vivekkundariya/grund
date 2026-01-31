@@ -127,17 +127,14 @@ type TunnelTarget struct {
 }
 
 // ServiceRegistry represents the services.yaml in the orchestration repo
+// Note: This is the legacy format - new configs use GlobalConfig.Services directly
 type ServiceRegistry struct {
 	Version      string                  `yaml:"version"`
 	Services     map[string]ServiceEntry `yaml:"services"`
 	PathDefaults PathDefaults            `yaml:"path_defaults"`
 }
 
-type ServiceEntry struct {
-	Repo string `yaml:"repo"`
-	Path string `yaml:"path"`
-}
-
+// PathDefaults contains default path settings
 type PathDefaults struct {
 	Base string `yaml:"base"`
 }
