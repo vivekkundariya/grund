@@ -6,7 +6,7 @@ fmt:
 lint: fmt
 	go vet ./...
 
-build: fmt
+build: lint
 	go build -o bin/grund .
 
 install:
