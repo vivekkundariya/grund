@@ -72,7 +72,6 @@ type ServiceDependencies struct {
 	Infrastructure infrastructure.InfrastructureRequirements
 }
 
-
 // ServiceName is a value object for service names
 type ServiceName string
 
@@ -98,15 +97,15 @@ func (s *Service) Validate() error {
 	if s.Name == "" {
 		return fmt.Errorf("service name is required")
 	}
-	
+
 	if s.Build == nil && s.Run == nil {
 		return fmt.Errorf("either build or run configuration must be provided")
 	}
-	
+
 	if s.Health.Endpoint == "" {
 		return fmt.Errorf("health check endpoint is required")
 	}
-	
+
 	return nil
 }
 

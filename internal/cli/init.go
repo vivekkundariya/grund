@@ -16,18 +16,18 @@ import (
 
 // initConfig holds the collected configuration during init
 type initConfig struct {
-	Name        string
-	Type        string
-	Port        int
-	Dockerfile  string
-	HealthPath  string
-	Postgres    *postgresInit
-	MongoDB     *mongoInit
-	Redis       bool
-	SQSQueues   []string
-	SNSTopics   []string
-	S3Buckets   []string
-	Services    []string
+	Name       string
+	Type       string
+	Port       int
+	Dockerfile string
+	HealthPath string
+	Postgres   *postgresInit
+	MongoDB    *mongoInit
+	Redis      bool
+	SQSQueues  []string
+	SNSTopics  []string
+	S3Buckets  []string
+	Services   []string
 }
 
 type postgresInit struct {

@@ -116,9 +116,9 @@ func newPortAllocator() *portAllocator {
 		9300: "elasticsearch-transport",
 		7700: "meilisearch",
 		// Monitoring
-		9090: "prometheus",
-		3000: "grafana",
-		9411: "zipkin",
+		9090:  "prometheus",
+		3000:  "grafana",
+		9411:  "zipkin",
 		16686: "jaeger",
 		// Others
 		8500: "consul",
@@ -255,7 +255,7 @@ func (g *ComposeGeneratorImpl) generateInfrastructure(infra infrastructure.Infra
 	existingCompose := g.loadExistingInfrastructure(outputPath)
 
 	compose := &ComposeFile{
-				Services: make(map[string]ComposeService),
+		Services: make(map[string]ComposeService),
 		Networks: map[string]ComposeNetwork{
 			"grund-network": {Driver: "bridge", Name: "grund-network"},
 		},
@@ -317,7 +317,7 @@ func (g *ComposeGeneratorImpl) generateService(svc *service.Service, envContext 
 	}
 
 	compose := &ComposeFile{
-				Services: make(map[string]ComposeService),
+		Services: make(map[string]ComposeService),
 		Networks: map[string]ComposeNetwork{
 			"grund-network": {External: true, Name: "grund-network"},
 		},

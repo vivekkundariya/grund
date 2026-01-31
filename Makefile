@@ -1,6 +1,12 @@
-.PHONY: build install test test-unit test-integration test-e2e test-coverage clean run
+.PHONY: build install test test-unit test-integration test-e2e test-coverage clean run fmt lint
 
-build:
+fmt:
+	gofmt -w .
+
+lint: fmt
+	go vet ./...
+
+build: lint
 	go build -o bin/grund .
 
 install:

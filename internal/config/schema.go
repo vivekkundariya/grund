@@ -4,12 +4,12 @@ import "time"
 
 // ServiceConfig represents the grund.yaml in each service
 type ServiceConfig struct {
-	Version  string                      `yaml:"version"`
-	Service  ServiceInfo                 `yaml:"service"`
-	Requires Requirements                `yaml:"requires"`
-	Env      map[string]string           `yaml:"env"`
-	EnvRefs  map[string]string           `yaml:"env_refs"`
-	Secrets  map[string]SecretConfig     `yaml:"secrets,omitempty"`
+	Version  string                  `yaml:"version"`
+	Service  ServiceInfo             `yaml:"service"`
+	Requires Requirements            `yaml:"requires"`
+	Env      map[string]string       `yaml:"env"`
+	EnvRefs  map[string]string       `yaml:"env_refs"`
+	Secrets  map[string]SecretConfig `yaml:"secrets,omitempty"`
 }
 
 // SecretConfig defines a secret required by the service
@@ -53,17 +53,17 @@ type HealthConfig struct {
 }
 
 type Requirements struct {
-	Services       []string              `yaml:"services"`
-	Infrastructure InfrastructureConfig  `yaml:"infrastructure"`
+	Services       []string             `yaml:"services"`
+	Infrastructure InfrastructureConfig `yaml:"infrastructure"`
 }
 
 type InfrastructureConfig struct {
-	Postgres   *PostgresConfig   `yaml:"postgres,omitempty"`
-	MongoDB    *MongoDBConfig    `yaml:"mongodb,omitempty"`
-	Redis      interface{}       `yaml:"redis,omitempty"`      // bool or RedisConfig
-	SQS        *SQSConfig        `yaml:"sqs,omitempty"`
-	SNS        *SNSConfig        `yaml:"sns,omitempty"`
-	S3         *S3Config         `yaml:"s3,omitempty"`
+	Postgres *PostgresConfig `yaml:"postgres,omitempty"`
+	MongoDB  *MongoDBConfig  `yaml:"mongodb,omitempty"`
+	Redis    interface{}     `yaml:"redis,omitempty"` // bool or RedisConfig
+	SQS      *SQSConfig      `yaml:"sqs,omitempty"`
+	SNS      *SNSConfig      `yaml:"sns,omitempty"`
+	S3       *S3Config       `yaml:"s3,omitempty"`
 }
 
 type PostgresConfig struct {
@@ -96,7 +96,7 @@ type SNSConfig struct {
 
 type TopicConfig struct {
 	Name          string               `yaml:"name"`
-	Subscriptions []SubscriptionConfig  `yaml:"subscriptions,omitempty"`
+	Subscriptions []SubscriptionConfig `yaml:"subscriptions,omitempty"`
 }
 
 type SubscriptionConfig struct {
@@ -116,9 +116,9 @@ type BucketConfig struct {
 
 // ServiceRegistry represents the services.yaml in the orchestration repo
 type ServiceRegistry struct {
-	Version      string                     `yaml:"version"`
-	Services     map[string]ServiceEntry    `yaml:"services"`
-	PathDefaults PathDefaults               `yaml:"path_defaults"`
+	Version      string                  `yaml:"version"`
+	Services     map[string]ServiceEntry `yaml:"services"`
+	PathDefaults PathDefaults            `yaml:"path_defaults"`
 }
 
 type ServiceEntry struct {

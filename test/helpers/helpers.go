@@ -43,12 +43,12 @@ func CreateTempDir(t *testing.T) string {
 // CreateTestService creates a service for testing
 func CreateTestService(name string, port int, deps []string) *service.Service {
 	p, _ := service.NewPort(port)
-	
+
 	serviceDeps := make([]service.ServiceName, len(deps))
 	for i, d := range deps {
 		serviceDeps[i] = service.ServiceName(d)
 	}
-	
+
 	return &service.Service{
 		Name: name,
 		Type: service.ServiceTypeGo,

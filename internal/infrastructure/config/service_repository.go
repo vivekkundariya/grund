@@ -86,12 +86,12 @@ func (r *ServiceRepositoryImpl) Save(svc *service.Service) error {
 // ServiceConfigDTO is the DTO for YAML serialization
 // This separates infrastructure concerns from domain
 type ServiceConfigDTO struct {
-	Version  string                       `yaml:"version"`
-	Service  ServiceInfoDTO               `yaml:"service"`
-	Requires RequirementsDTO              `yaml:"requires"`
-	Env      map[string]string            `yaml:"env"`
-	EnvRefs  map[string]string            `yaml:"env_refs"`
-	Secrets  map[string]SecretConfigDTO   `yaml:"secrets,omitempty"`
+	Version  string                     `yaml:"version"`
+	Service  ServiceInfoDTO             `yaml:"service"`
+	Requires RequirementsDTO            `yaml:"requires"`
+	Env      map[string]string          `yaml:"env"`
+	EnvRefs  map[string]string          `yaml:"env_refs"`
+	Secrets  map[string]SecretConfigDTO `yaml:"secrets,omitempty"`
 }
 
 // SecretConfigDTO is the DTO for secret configuration
@@ -109,9 +109,9 @@ func (s SecretConfigDTO) IsRequired() bool {
 }
 
 type ServiceInfoDTO struct {
-	Name   string        `yaml:"name"`
-	Type   string        `yaml:"type"`
-	Port   int           `yaml:"port"`
+	Name   string          `yaml:"name"`
+	Type   string          `yaml:"type"`
+	Port   int             `yaml:"port"`
 	Build  *BuildConfigDTO `yaml:"build,omitempty"`
 	Run    *RunConfigDTO   `yaml:"run,omitempty"`
 	Health HealthConfigDTO `yaml:"health"`
@@ -135,17 +135,17 @@ type HealthConfigDTO struct {
 }
 
 type RequirementsDTO struct {
-	Services       []string              `yaml:"services"`
+	Services       []string                `yaml:"services"`
 	Infrastructure InfrastructureConfigDTO `yaml:"infrastructure"`
 }
 
 type InfrastructureConfigDTO struct {
-	Postgres   *PostgresConfigDTO   `yaml:"postgres,omitempty"`
-	MongoDB    *MongoDBConfigDTO    `yaml:"mongodb,omitempty"`
-	Redis      interface{}          `yaml:"redis,omitempty"`
-	SQS        *SQSConfigDTO        `yaml:"sqs,omitempty"`
-	SNS        *SNSConfigDTO        `yaml:"sns,omitempty"`
-	S3         *S3ConfigDTO         `yaml:"s3,omitempty"`
+	Postgres *PostgresConfigDTO `yaml:"postgres,omitempty"`
+	MongoDB  *MongoDBConfigDTO  `yaml:"mongodb,omitempty"`
+	Redis    interface{}        `yaml:"redis,omitempty"`
+	SQS      *SQSConfigDTO      `yaml:"sqs,omitempty"`
+	SNS      *SNSConfigDTO      `yaml:"sns,omitempty"`
+	S3       *S3ConfigDTO       `yaml:"s3,omitempty"`
 }
 
 type PostgresConfigDTO struct {
@@ -175,7 +175,7 @@ type SNSConfigDTO struct {
 }
 
 type TopicConfigDTO struct {
-	Name          string               `yaml:"name"`
+	Name          string                  `yaml:"name"`
 	Subscriptions []SubscriptionConfigDTO `yaml:"subscriptions,omitempty"`
 }
 

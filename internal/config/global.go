@@ -11,16 +11,16 @@ import (
 const (
 	// DefaultConfigFileName is the default name for the services registry file
 	DefaultConfigFileName = "services.yaml"
-	
+
 	// GlobalConfigDir is the directory for global Grund configuration
 	GlobalConfigDir = ".grund"
-	
+
 	// GlobalConfigFile is the global configuration file name
 	GlobalConfigFile = "config.yaml"
-	
+
 	// EnvConfigFile is the environment variable for custom config file path
 	EnvConfigFile = "GRUND_CONFIG"
-	
+
 	// EnvGrundHome is the environment variable for Grund home directory
 	EnvGrundHome = "GRUND_HOME"
 )
@@ -31,16 +31,16 @@ type GlobalConfig struct {
 	// DefaultServicesFile is the default path to services.yaml
 	// Can be absolute or relative to current directory
 	DefaultServicesFile string `yaml:"default_services_file,omitempty"`
-	
+
 	// DefaultOrchestrationRepo is the default path to the orchestration repo
 	DefaultOrchestrationRepo string `yaml:"default_orchestration_repo,omitempty"`
-	
+
 	// ServicesBasePath is the base path where services are cloned
 	ServicesBasePath string `yaml:"services_base_path,omitempty"`
-	
+
 	// Docker configuration
 	Docker DockerConfig `yaml:"docker,omitempty"`
-	
+
 	// LocalStack configuration
 	LocalStack LocalStackConfig `yaml:"localstack,omitempty"`
 }
@@ -55,7 +55,7 @@ type DockerConfig struct {
 type LocalStackConfig struct {
 	// Endpoint is the LocalStack endpoint (default: "http://localhost:4566")
 	Endpoint string `yaml:"endpoint,omitempty"`
-	
+
 	// Region is the AWS region for LocalStack (default: "us-east-1")
 	Region string `yaml:"region,omitempty"`
 }
@@ -66,12 +66,12 @@ func GetGrundHome() (string, error) {
 	if home := os.Getenv(EnvGrundHome); home != "" {
 		return home, nil
 	}
-	
+
 	userHome, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get user home directory: %w", err)
 	}
-	
+
 	return filepath.Join(userHome, GlobalConfigDir), nil
 }
 
@@ -91,7 +91,7 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 	if err != nil {
 		return DefaultGlobalConfig(), nil
 	}
-	
+
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -99,15 +99,15 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 		}
 		return nil, fmt.Errorf("failed to read global config: %w", err)
 	}
-	
+
 	var config GlobalConfig
 	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse global config: %w", err)
 	}
-	
+
 	// Apply defaults for unset values
 	config.applyDefaults()
-	
+
 	return &config, nil
 }
 
@@ -117,23 +117,23 @@ func SaveGlobalConfig(config *GlobalConfig) error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Create directory if it doesn't exist
 	if err := os.MkdirAll(grundHome, 0755); err != nil {
 		return fmt.Errorf("failed to create config directory: %w", err)
 	}
-	
+
 	configPath := filepath.Join(grundHome, GlobalConfigFile)
-	
+
 	data, err := yaml.Marshal(config)
 	if err != nil {
 		return fmt.Errorf("failed to marshal config: %w", err)
 	}
-	
+
 	if err := os.WriteFile(configPath, data, 0644); err != nil {
 		return fmt.Errorf("failed to write config: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -154,7 +154,7 @@ func DefaultGlobalConfig() *GlobalConfig {
 // applyDefaults applies default values to unset fields
 func (c *GlobalConfig) applyDefaults() {
 	defaults := DefaultGlobalConfig()
-	
+
 	if c.DefaultServicesFile == "" {
 		c.DefaultServicesFile = defaults.DefaultServicesFile
 	}
@@ -175,12 +175,12 @@ func InitGlobalConfig() error {
 	if err != nil {
 		return err
 	}
-	
+
 	// Check if config already exists
 	if _, err := os.Stat(configPath); err == nil {
 		return nil // Already exists
 	}
-	
+
 	// Create default config
 	return SaveGlobalConfig(DefaultGlobalConfig())
 }

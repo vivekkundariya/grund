@@ -42,11 +42,11 @@ func NewUpCommandHandler(
 ) *UpCommandHandler {
 	return &UpCommandHandler{
 		serviceRepo:      serviceRepo,
-		registryRepo:      registryRepo,
-		orchestrator:      orchestrator,
-		provisioner:       provisioner,
-		composeGenerator:  composeGenerator,
-		healthChecker:     healthChecker,
+		registryRepo:     registryRepo,
+		orchestrator:     orchestrator,
+		provisioner:      provisioner,
+		composeGenerator: composeGenerator,
+		healthChecker:    healthChecker,
 	}
 }
 
