@@ -259,6 +259,16 @@ grund add sns --topic notifications
 grund add s3 --bucket uploads
 ```
 
+#### Tunnel (cloudflared or ngrok)
+```bash
+grund add tunnel --provider cloudflared --target localstack
+```
+
+Expose local endpoints to the internet. Useful for:
+- Making LocalStack S3 presigned URLs accessible to cloud LLMs
+- Testing webhooks from external services
+- Sharing local development servers
+
 ## Commands Reference
 
 ### `grund up`
@@ -425,6 +435,12 @@ requires:
       buckets:
         - name: uploads
         - name: exports
+    tunnel:
+      provider: cloudflared     # or "ngrok"
+      targets:
+        - name: localstack
+          host: "${localstack.host}"
+          port: "${localstack.port}"
 
 env:                            # Static environment variables
   APP_ENV: development
@@ -485,6 +501,8 @@ Use these placeholders in `env_refs`:
 | `${<service>.host}` | Dependent service hostname |
 | `${<service>.port}` | Dependent service port |
 | `${self.postgres.database}` | This service's database name |
+| `${tunnel.<name>.url}` | Public tunnel URL (https://...) |
+| `${tunnel.<name>.host}` | Public tunnel hostname |
 
 ## Shell Completion
 

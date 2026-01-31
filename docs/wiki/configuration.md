@@ -285,6 +285,50 @@ infrastructure:
       - name: documents
 ```
 
+##### Tunnel (cloudflared or ngrok)
+
+Expose local endpoints to the internet via secure tunnels. Useful for:
+- Making LocalStack S3 presigned URLs accessible to cloud LLMs
+- Testing webhooks from external services
+- Sharing local development servers temporarily
+
+```yaml
+infrastructure:
+  tunnel:
+    provider: cloudflared      # or "ngrok"
+    targets:
+      - name: localstack       # Identifier for ${tunnel.localstack.url}
+        host: "${localstack.host}"
+        port: "${localstack.port}"
+      - name: api
+        host: localhost
+        port: "8080"
+```
+
+**Tunnel Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `provider` | string | Yes | `cloudflared` or `ngrok` |
+| `targets` | list | Yes | Endpoints to expose |
+| `targets[].name` | string | Yes | Identifier for placeholders |
+| `targets[].host` | string | Yes | Local host (supports placeholders) |
+| `targets[].port` | string | Yes | Local port (supports placeholders) |
+
+**Prerequisites:**
+
+- **cloudflared**: Install with `brew install cloudflared` (no account required)
+- **ngrok**: Install from https://ngrok.com/download (free account required)
+
+**Usage in env_refs:**
+
+```yaml
+env_refs:
+  # Use tunnel URL for presigned S3 URLs accessible by external services
+  AWS_PUBLIC_ENDPOINT: "${tunnel.localstack.url}"
+  WEBHOOK_BASE_URL: "${tunnel.api.url}"
+```
+
 ### Environment Variables
 
 #### Static Variables (`env`)
@@ -620,6 +664,8 @@ networks:
 | | `${sns.<name>.name}` | Topic name |
 | **S3** | `${s3.<name>.url}` | Bucket URL |
 | | `${s3.<name>.name}` | Bucket name |
+| **Tunnel** | `${tunnel.<name>.url}` | Public HTTPS URL |
+| | `${tunnel.<name>.host}` | Public hostname only |
 | **Services** | `${<service>.host}` | Service container name |
 | | `${<service>.port}` | Service port |
 | **Self** | `${self.host}` | Current service name |
