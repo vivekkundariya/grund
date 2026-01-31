@@ -184,3 +184,18 @@ func InitGlobalConfig() error {
 	// Create default config
 	return SaveGlobalConfig(DefaultGlobalConfig())
 }
+
+// GlobalConfigExists checks if global config file exists
+func GlobalConfigExists() bool {
+	configPath, err := GetGlobalConfigPath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(configPath)
+	return err == nil
+}
+
+// ForceInitGlobalConfig initializes the global config, overwriting if exists
+func ForceInitGlobalConfig() error {
+	return SaveGlobalConfig(DefaultGlobalConfig())
+}

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+	"github.com/vivekkundariya/grund/internal/config"
 	"github.com/vivekkundariya/grund/internal/ui"
 )
 
@@ -63,10 +64,29 @@ func runInit(cmd *cobra.Command, args []string) error {
 }
 
 // handleConfigInit handles the global config initialization.
-// TODO: Implement actual config creation with re-init prompt
 func handleConfigInit(reader *bufio.Reader) error {
 	ui.Step("Initializing global configuration...")
-	// Stub implementation - will be implemented in Task 2
+
+	configPath, _ := config.GetGlobalConfigPath()
+
+	if config.GlobalConfigExists() {
+		ui.Infof("Global config already exists at: %s", configPath)
+
+		if promptYesNo(reader, "Do you want to re-initialize the config?", false) {
+			if err := config.ForceInitGlobalConfig(); err != nil {
+				return fmt.Errorf("failed to re-initialize config: %w", err)
+			}
+			ui.Successf("Config re-initialized at: %s", configPath)
+		} else {
+			ui.Infof("Keeping existing config")
+		}
+	} else {
+		if err := config.InitGlobalConfig(); err != nil {
+			return fmt.Errorf("failed to initialize config: %w", err)
+		}
+		ui.Successf("Config created at: %s", configPath)
+	}
+
 	return nil
 }
 
