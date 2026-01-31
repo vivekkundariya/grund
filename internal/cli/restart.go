@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vivekkundariya/grund/internal/application/commands"
+	"github.com/vivekkundariya/grund/internal/cli/shared"
 )
 
 var restartBuild bool
@@ -15,7 +16,7 @@ var restartCmd = &cobra.Command{
 	Long:  `Restart one or more services while keeping infrastructure running.`,
 	Args:  cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if container == nil {
+		if shared.Container == nil {
 			return fmt.Errorf("container not initialized")
 		}
 
@@ -23,7 +24,7 @@ var restartCmd = &cobra.Command{
 			ServiceNames: args,
 			Build:        restartBuild,
 		}
-		return container.RestartCommandHandler.Handle(cmd.Context(), restartCmd)
+		return shared.Container.RestartCommandHandler.Handle(cmd.Context(), restartCmd)
 	},
 }
 

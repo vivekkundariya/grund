@@ -254,21 +254,7 @@ func TestExpandPath(t *testing.T) {
 	}
 }
 
-func TestDefaultGlobalConfig(t *testing.T) {
-	config := DefaultGlobalConfig()
-
-	if config.DefaultServicesFile != "services.yaml" {
-		t.Errorf("Expected default services file 'services.yaml', got %q", config.DefaultServicesFile)
-	}
-
-	if config.Docker.ComposeCommand != "docker compose" {
-		t.Errorf("Expected docker compose command, got %q", config.Docker.ComposeCommand)
-	}
-
-	if config.LocalStack.Endpoint != "http://localhost:4566" {
-		t.Errorf("Expected localstack endpoint, got %q", config.LocalStack.Endpoint)
-	}
-}
+// Note: TestDefaultGlobalConfig is in global_test.go
 
 func TestConfigResolver_GetSettings(t *testing.T) {
 	resolver, _ := NewConfigResolver("")

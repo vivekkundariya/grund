@@ -8,6 +8,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/spf13/cobra"
 	"github.com/vivekkundariya/grund/internal/application/queries"
+	"github.com/vivekkundariya/grund/internal/cli/shared"
 	"github.com/vivekkundariya/grund/internal/ui"
 )
 
@@ -16,12 +17,12 @@ var statusCmd = &cobra.Command{
 	Short: "Show running services and health",
 	Long:  `Display the status of all running services and infrastructure, including health checks.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if container == nil {
+		if shared.Container == nil {
 			return fmt.Errorf("container not initialized")
 		}
 
 		query := queries.StatusQuery{ServiceName: nil}
-		statuses, err := container.StatusQueryHandler.Handle(cmd.Context(), query)
+		statuses, err := shared.Container.StatusQueryHandler.Handle(cmd.Context(), query)
 		if err != nil {
 			return err
 		}

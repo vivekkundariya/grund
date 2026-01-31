@@ -9,9 +9,6 @@ import (
 )
 
 const (
-	// DefaultConfigFileName is the default name for the services registry file
-	DefaultConfigFileName = "services.yaml"
-
 	// GlobalConfigDir is the directory for global Grund configuration
 	GlobalConfigDir = ".grund"
 
@@ -23,37 +20,49 @@ const (
 
 	// EnvGrundHome is the environment variable for Grund home directory
 	EnvGrundHome = "GRUND_HOME"
+
+	// Default LocalStack settings
+	DefaultLocalStackEndpoint = "http://localhost:4566"
+	DefaultLocalStackRegion   = "us-east-1"
+
+	// Default Docker settings
+	DefaultDockerComposeCommand = "docker compose"
 )
 
-// GlobalConfig represents the global Grund configuration
+// GlobalConfig represents the unified Grund configuration
 // stored at ~/.grund/config.yaml
 type GlobalConfig struct {
-	// DefaultServicesFile is the default path to services.yaml
-	// Can be absolute or relative to current directory
-	DefaultServicesFile string `yaml:"default_services_file,omitempty"`
+	// Version of the config schema
+	Version string `yaml:"version"`
 
-	// DefaultOrchestrationRepo is the default path to the orchestration repo
-	DefaultOrchestrationRepo string `yaml:"default_orchestration_repo,omitempty"`
+	// Services is the registry of services
+	Services map[string]ServiceEntry `yaml:"services,omitempty"`
 
-	// ServicesBasePath is the base path where services are cloned
-	ServicesBasePath string `yaml:"services_base_path,omitempty"`
+	// Docker configuration (optional, defaults applied if not set)
+	Docker *DockerConfig `yaml:"docker,omitempty"`
 
-	// Docker configuration
-	Docker DockerConfig `yaml:"docker,omitempty"`
-
-	// LocalStack configuration
-	LocalStack LocalStackConfig `yaml:"localstack,omitempty"`
+	// LocalStack configuration (optional, defaults applied if not set)
+	LocalStack *LocalStackConfig `yaml:"localstack,omitempty"`
 }
 
-// DockerConfig holds Docker-related configuration
+// ServiceEntry represents a service in the registry
+type ServiceEntry struct {
+	// Path to the service directory
+	Path string `yaml:"path"`
+
+	// Repo is the git repository URL (optional)
+	Repo string `yaml:"repo,omitempty"`
+}
+
+// DockerConfig holds Docker-related settings
 type DockerConfig struct {
-	// ComposeCommand is the docker compose command (default: "docker compose")
+	// ComposeCommand is the command to run docker compose (default: "docker compose")
 	ComposeCommand string `yaml:"compose_command,omitempty"`
 }
 
-// LocalStackConfig holds LocalStack-related configuration
+// LocalStackConfig holds LocalStack-related settings
 type LocalStackConfig struct {
-	// Endpoint is the LocalStack endpoint (default: "http://localhost:4566")
+	// Endpoint is the LocalStack endpoint URL (default: "http://localhost:4566")
 	Endpoint string `yaml:"endpoint,omitempty"`
 
 	// Region is the AWS region for LocalStack (default: "us-east-1")
@@ -105,8 +114,10 @@ func LoadGlobalConfig() (*GlobalConfig, error) {
 		return nil, fmt.Errorf("failed to parse global config: %w", err)
 	}
 
-	// Apply defaults for unset values
-	config.applyDefaults()
+	// Ensure services map is initialized
+	if config.Services == nil {
+		config.Services = make(map[string]ServiceEntry)
+	}
 
 	return &config, nil
 }
@@ -140,32 +151,8 @@ func SaveGlobalConfig(config *GlobalConfig) error {
 // DefaultGlobalConfig returns the default global configuration
 func DefaultGlobalConfig() *GlobalConfig {
 	return &GlobalConfig{
-		DefaultServicesFile: DefaultConfigFileName,
-		Docker: DockerConfig{
-			ComposeCommand: "docker compose",
-		},
-		LocalStack: LocalStackConfig{
-			Endpoint: "http://localhost:4566",
-			Region:   "us-east-1",
-		},
-	}
-}
-
-// applyDefaults applies default values to unset fields
-func (c *GlobalConfig) applyDefaults() {
-	defaults := DefaultGlobalConfig()
-
-	if c.DefaultServicesFile == "" {
-		c.DefaultServicesFile = defaults.DefaultServicesFile
-	}
-	if c.Docker.ComposeCommand == "" {
-		c.Docker.ComposeCommand = defaults.Docker.ComposeCommand
-	}
-	if c.LocalStack.Endpoint == "" {
-		c.LocalStack.Endpoint = defaults.LocalStack.Endpoint
-	}
-	if c.LocalStack.Region == "" {
-		c.LocalStack.Region = defaults.LocalStack.Region
+		Version:  "1",
+		Services: make(map[string]ServiceEntry),
 	}
 }
 
@@ -183,4 +170,84 @@ func InitGlobalConfig() error {
 
 	// Create default config
 	return SaveGlobalConfig(DefaultGlobalConfig())
+}
+
+// GlobalConfigExists checks if global config file exists
+func GlobalConfigExists() bool {
+	configPath, err := GetGlobalConfigPath()
+	if err != nil {
+		return false
+	}
+	_, err = os.Stat(configPath)
+	return err == nil
+}
+
+// ForceInitGlobalConfig initializes the global config, overwriting if exists
+func ForceInitGlobalConfig() error {
+	return SaveGlobalConfig(DefaultGlobalConfig())
+}
+
+// GetLocalStackEndpoint returns the LocalStack endpoint
+// Reads from config if set, otherwise returns default
+func GetLocalStackEndpoint() string {
+	if cfg, err := LoadGlobalConfig(); err == nil && cfg.LocalStack != nil && cfg.LocalStack.Endpoint != "" {
+		return cfg.LocalStack.Endpoint
+	}
+	return DefaultLocalStackEndpoint
+}
+
+// GetLocalStackRegion returns the LocalStack region
+// Reads from config if set, otherwise returns default
+func GetLocalStackRegion() string {
+	if cfg, err := LoadGlobalConfig(); err == nil && cfg.LocalStack != nil && cfg.LocalStack.Region != "" {
+		return cfg.LocalStack.Region
+	}
+	return DefaultLocalStackRegion
+}
+
+// GetDockerComposeCommand returns the docker compose command
+// Reads from config if set, otherwise returns default
+func GetDockerComposeCommand() string {
+	if cfg, err := LoadGlobalConfig(); err == nil && cfg.Docker != nil && cfg.Docker.ComposeCommand != "" {
+		return cfg.Docker.ComposeCommand
+	}
+	return DefaultDockerComposeCommand
+}
+
+// GetLocalStackEndpointFromConfig returns the LocalStack endpoint from a config instance
+func (c *GlobalConfig) GetLocalStackEndpoint() string {
+	if c.LocalStack != nil && c.LocalStack.Endpoint != "" {
+		return c.LocalStack.Endpoint
+	}
+	return DefaultLocalStackEndpoint
+}
+
+// GetLocalStackRegionFromConfig returns the LocalStack region from a config instance
+func (c *GlobalConfig) GetLocalStackRegion() string {
+	if c.LocalStack != nil && c.LocalStack.Region != "" {
+		return c.LocalStack.Region
+	}
+	return DefaultLocalStackRegion
+}
+
+// GetDockerComposeCommandFromConfig returns the docker compose command from a config instance
+func (c *GlobalConfig) GetDockerComposeCommand() string {
+	if c.Docker != nil && c.Docker.ComposeCommand != "" {
+		return c.Docker.ComposeCommand
+	}
+	return DefaultDockerComposeCommand
+}
+
+// AddService adds a service to the config
+func (c *GlobalConfig) AddService(name string, entry ServiceEntry) {
+	if c.Services == nil {
+		c.Services = make(map[string]ServiceEntry)
+	}
+	c.Services[name] = entry
+}
+
+// GetService returns a service entry by name
+func (c *GlobalConfig) GetService(name string) (ServiceEntry, bool) {
+	entry, ok := c.Services[name]
+	return entry, ok
 }

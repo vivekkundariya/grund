@@ -4,6 +4,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/vivekkundariya/grund/internal/application/commands"
 	"github.com/vivekkundariya/grund/internal/application/wiring"
+	"github.com/vivekkundariya/grund/internal/cli/shared"
 	"github.com/vivekkundariya/grund/internal/config"
 	"github.com/vivekkundariya/grund/internal/infrastructure/docker"
 	"github.com/vivekkundariya/grund/internal/ui"
@@ -24,10 +25,10 @@ If run without a valid project context, stops all projects in ~/.grund/tmp/.`,
 			if err == nil {
 				// Valid project context - stop this project
 				ui.Debug("Using config: %s", servicesPath)
-				container, err = wiring.NewContainerWithConfig(orchestrationRoot, servicesPath, resolver)
+				shared.Container, err = wiring.NewContainerWithConfig(orchestrationRoot, servicesPath, resolver)
 				if err == nil {
 					downCmd := commands.DownCommand{}
-					return container.DownCommandHandler.Handle(cmd.Context(), downCmd)
+					return shared.Container.DownCommandHandler.Handle(cmd.Context(), downCmd)
 				}
 			}
 		}

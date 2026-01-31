@@ -5,14 +5,14 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vivekkundariya/grund/internal/application/wiring"
+	"github.com/vivekkundariya/grund/internal/cli/configcmd"
+	"github.com/vivekkundariya/grund/internal/cli/service"
+	"github.com/vivekkundariya/grund/internal/cli/shared"
 	"github.com/vivekkundariya/grund/internal/config"
 	"github.com/vivekkundariya/grund/internal/ui"
 )
 
 var (
-	container      *wiring.Container
-	configResolver *config.ConfigResolver
-
 	// CLI flags
 	configFile string
 	verbose    bool
@@ -24,17 +24,22 @@ var rootCmd = &cobra.Command{
 	Long: `Grund is a CLI tool that enables developers to selectively spin up
 services and their dependencies with a single command.
 
-Configuration:
-  1. --config flag (explicit path)
-  2. GRUND_CONFIG environment variable
-  3. Default: ~/.grund/services.yaml
+Quick Start:
+  grund up user-service       Start a service with dependencies
+  grund status                Check running services
+  grund down                  Stop everything
 
-Examples:
-  grund up service-a service-b    Start services with dependencies
-  grund down                      Stop all services
-  grund status                    Show service status
-  grund secrets list myservice    Check required secrets`,
-	Version: "0.1.0",
+Service Management:
+  grund service init          Initialize new service
+  grund service add queue X   Add SQS queue
+  grund service validate      Validate configuration
+
+Configuration:
+  grund config init           Set up global config
+  grund config show           View configuration
+
+Documentation: https://github.com/vivekkundariya/grund`,
+	Version: "0.2.0",
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		// Set verbose mode on logger
 		ui.SetVerbose(verbose)
@@ -49,21 +54,27 @@ Examples:
 			return nil
 		}
 
-		// Skip for init, setup, and down commands (don't need existing services.yaml)
-		// down can work without a project context by stopping all projects
-		if cmd.Name() == "init" || cmd.Name() == "setup" || cmd.Name() == "down" {
-			return nil
+		// Skip for commands that don't need existing services.yaml
+		// - service init: creates new grund.yaml
+		// - config init: creates global config
+		// - down: can work without project context
+		// - validate: only needs local grund.yaml
+		skipInit := []string{"init", "down", "validate"}
+		for _, skip := range skipInit {
+			if cmd.Name() == skip {
+				return nil
+			}
 		}
 
 		// Initialize config resolver
 		var err error
-		configResolver, err = config.NewConfigResolver(configFile)
+		shared.ConfigResolver, err = config.NewConfigResolver(configFile)
 		if err != nil {
 			return fmt.Errorf("failed to initialize config: %w", err)
 		}
 
 		// Resolve services file and orchestration root
-		servicesPath, orchestrationRoot, err := configResolver.ResolveServicesFile()
+		servicesPath, orchestrationRoot, err := shared.ConfigResolver.ResolveServicesFile()
 		if err != nil {
 			return err
 		}
@@ -72,7 +83,7 @@ Examples:
 		ui.Debug("Orchestration root: %s", orchestrationRoot)
 
 		// Initialize dependency injection container
-		container, err = wiring.NewContainerWithConfig(orchestrationRoot, servicesPath, configResolver)
+		shared.Container, err = wiring.NewContainerWithConfig(orchestrationRoot, servicesPath, shared.ConfigResolver)
 		if err != nil {
 			return fmt.Errorf("failed to initialize: %w", err)
 		}
@@ -93,44 +104,33 @@ func init() {
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false,
 		"Enable verbose output")
 
-	// Add subcommands
+	// Initialization
+	rootCmd.AddCommand(initCmd)
+
+	// Daily operations (root level - most frequently used)
 	rootCmd.AddCommand(upCmd)
 	rootCmd.AddCommand(downCmd)
 	rootCmd.AddCommand(statusCmd)
 	rootCmd.AddCommand(logsCmd)
 	rootCmd.AddCommand(restartCmd)
 	rootCmd.AddCommand(resetCmd)
-	rootCmd.AddCommand(configCmd)
-	rootCmd.AddCommand(initCmd)
+
+	// Service management
+	rootCmd.AddCommand(service.Cmd)
+
+	// Configuration management
+	rootCmd.AddCommand(configcmd.Cmd)
+
+	// Secrets management
 	rootCmd.AddCommand(secretsCmd)
-	rootCmd.AddCommand(newSetupCmd())
-}
-
-// newSetupCmd creates the setup subcommand for global configuration
-func newSetupCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "setup",
-		Short: "Initialize global Grund configuration",
-		Long: `Initialize the global Grund configuration at ~/.grund/config.yaml.
-
-This is a one-time setup for your machine. It creates a default configuration
-file that you can customize with your preferred paths and settings.
-
-For initializing a service with grund.yaml, use 'grund init' instead.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := config.InitGlobalConfig(); err != nil {
-				return fmt.Errorf("failed to initialize config: %w", err)
-			}
-
-			configPath, _ := config.GetGlobalConfigPath()
-			fmt.Printf("Global config initialized at: %s\n", configPath)
-			fmt.Println("\nYou can customize this file to set default paths and options.")
-			return nil
-		},
-	}
 }
 
 // GetConfigResolver returns the current config resolver (for use by subcommands)
 func GetConfigResolver() *config.ConfigResolver {
-	return configResolver
+	return shared.ConfigResolver
+}
+
+// GetContainer returns the current DI container (for use by subcommands)
+func GetContainer() *wiring.Container {
+	return shared.Container
 }
