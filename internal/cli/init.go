@@ -80,21 +80,15 @@ func handleConfigInit() error {
 func handleAISkillsInit() error {
 	ui.Step("Setting up AI assistant skills...")
 
-	// Check what's already installed
+	// Show current status
 	claudeInstalled := skills.IsInstalled(skills.Claude)
 	cursorInstalled := skills.IsInstalled(skills.Cursor)
 
-	if claudeInstalled && cursorInstalled {
-		ui.Successf("AI assistant skills already configured for Claude Code and Cursor")
-		return nil
-	}
-
-	// Report already installed
 	if claudeInstalled {
-		ui.Infof("Claude Code skill already installed")
+		ui.Infof("Claude Code skill: installed")
 	}
 	if cursorInstalled {
-		ui.Infof("Cursor skill already installed")
+		ui.Infof("Cursor skill: installed")
 	}
 
 	// Ask if user wants to set up skills
@@ -108,28 +102,20 @@ func handleAISkillsInit() error {
 		return nil
 	}
 
-	// Determine which assistants to offer
+	// Ask which assistants to install
+	choice, err := prompts.Select("Which AI assistant?", []string{"Claude Code", "Cursor", "Both"}, "Both")
+	if err != nil {
+		return fmt.Errorf("prompt failed: %w", err)
+	}
+
 	var toInstall []skills.AIAssistant
-
-	if !claudeInstalled && !cursorInstalled {
-		// Both available - ask which
-		choice, err := prompts.Select("Which AI assistant?", []string{"Claude Code", "Cursor", "Both"}, "Both")
-		if err != nil {
-			return fmt.Errorf("prompt failed: %w", err)
-		}
-
-		switch choice {
-		case "Claude Code":
-			toInstall = []skills.AIAssistant{skills.Claude}
-		case "Cursor":
-			toInstall = []skills.AIAssistant{skills.Cursor}
-		default: // "Both"
-			toInstall = []skills.AIAssistant{skills.Claude, skills.Cursor}
-		}
-	} else if !claudeInstalled {
+	switch choice {
+	case "Claude Code":
 		toInstall = []skills.AIAssistant{skills.Claude}
-	} else {
+	case "Cursor":
 		toInstall = []skills.AIAssistant{skills.Cursor}
+	default: // "Both"
+		toInstall = []skills.AIAssistant{skills.Claude, skills.Cursor}
 	}
 
 	// Install selected assistants
