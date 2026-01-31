@@ -17,6 +17,9 @@ file that you can customize with your preferred paths and settings.
 
 For initializing a service with grund.yaml, use 'grund service init' instead.
 
+NOTE: For first-time setup, consider using 'grund init' instead, which also
+sets up AI assistant skills for Claude Code and Cursor.
+
 Example:
   grund config init`,
 	RunE: runConfigInit,
