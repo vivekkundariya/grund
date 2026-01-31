@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/vivekkundariya/grund/internal/application/ports"
 	"github.com/vivekkundariya/grund/internal/config"
 )
 
@@ -65,15 +66,8 @@ func (m *Manager) ValidateConfig(cfg *config.TunnelConfig) error {
 	return nil
 }
 
-// ResolvedTarget represents a target with placeholders resolved
-type ResolvedTarget struct {
-	Name string
-	Host string
-	Port string
-}
-
 // StartAll starts tunnels for all targets in the config
-func (m *Manager) StartAll(ctx context.Context, cfg *config.TunnelConfig, resolvedTargets []ResolvedTarget) ([]*Tunnel, error) {
+func (m *Manager) StartAll(ctx context.Context, cfg *config.TunnelConfig, resolvedTargets []ports.ResolvedTunnelTarget) ([]ports.TunnelInfo, error) {
 	if cfg == nil || len(cfg.Targets) == 0 {
 		return nil, nil
 	}
@@ -86,22 +80,28 @@ func (m *Manager) StartAll(ctx context.Context, cfg *config.TunnelConfig, resolv
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	var tunnels []*Tunnel
+	var tunnelInfos []ports.TunnelInfo
+	var startedTunnels []*Tunnel
 	for _, target := range resolvedTargets {
 		localAddr := fmt.Sprintf("%s:%s", target.Host, target.Port)
 		tunnel, err := provider.Start(ctx, target.Name, localAddr)
 		if err != nil {
 			// Cleanup any started tunnels
-			for _, t := range tunnels {
+			for _, t := range startedTunnels {
 				_ = provider.Stop(t)
 			}
 			return nil, fmt.Errorf("failed to start tunnel %s: %w", target.Name, err)
 		}
-		tunnels = append(tunnels, tunnel)
+		startedTunnels = append(startedTunnels, tunnel)
 		m.tunnels[target.Name] = tunnel
+		tunnelInfos = append(tunnelInfos, ports.TunnelInfo{
+			Name:      tunnel.Name,
+			PublicURL: tunnel.PublicURL,
+			LocalAddr: tunnel.LocalAddr,
+		})
 	}
 
-	return tunnels, nil
+	return tunnelInfos, nil
 }
 
 // StopAll stops all running tunnels
@@ -122,13 +122,20 @@ func (m *Manager) StopAll() error {
 }
 
 // GetTunnels returns all running tunnels
-func (m *Manager) GetTunnels() map[string]*Tunnel {
+func (m *Manager) GetTunnels() map[string]ports.TunnelInfo {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	result := make(map[string]*Tunnel)
+	result := make(map[string]ports.TunnelInfo)
 	for k, v := range m.tunnels {
-		result[k] = v
+		result[k] = ports.TunnelInfo{
+			Name:      v.Name,
+			PublicURL: v.PublicURL,
+			LocalAddr: v.LocalAddr,
+		}
 	}
 	return result
 }
+
+// Ensure Manager implements ports.TunnelManager
+var _ ports.TunnelManager = (*Manager)(nil)
