@@ -27,6 +27,7 @@ func NewEnvironmentResolver() ports.EnvironmentResolver {
 //   - ${s3.<bucket-name>.name}, ${s3.<bucket-name>.url}
 //   - ${<service-name>.host}, ${<service-name>.port}
 //   - ${self.host}, ${self.port}, ${self.postgres.database}
+//   - ${tunnel.<name>.url}, ${tunnel.<name>.host}
 func (r *EnvironmentResolverImpl) Resolve(envRefs map[string]string, context ports.EnvironmentContext) (map[string]string, error) {
 	resolved := make(map[string]string)
 
@@ -89,6 +90,8 @@ func (r *EnvironmentResolverImpl) resolvePlaceholder(path string, context ports.
 		return r.resolveS3(parts[1:], context)
 	case "self":
 		return r.resolveSelf(parts[1:], context)
+	case "tunnel":
+		return r.resolveTunnel(parts[1:], context)
 	default:
 		// Try to resolve as a service reference
 		return r.resolveService(prefix, parts[1:], context)
@@ -309,5 +312,36 @@ func (r *EnvironmentResolverImpl) resolveSelf(parts []string, context ports.Envi
 			return fmt.Sprintf("%v", val), nil
 		}
 		return "", fmt.Errorf("unknown property %s for self", parts[0])
+	}
+}
+
+func (r *EnvironmentResolverImpl) resolveTunnel(parts []string, context ports.EnvironmentContext) (string, error) {
+	if len(parts) < 2 {
+		return "", fmt.Errorf("tunnel reference must be ${tunnel.<name>.<property>}")
+	}
+
+	tunnelName := parts[0]
+	property := parts[1]
+
+	tunnel, ok := context.Tunnel[tunnelName]
+	if !ok {
+		return "", fmt.Errorf("tunnel %s not found", tunnelName)
+	}
+
+	switch property {
+	case "url":
+		return tunnel.PublicURL, nil
+	case "host":
+		// Extract host from URL
+		url := tunnel.PublicURL
+		url = strings.TrimPrefix(url, "https://")
+		url = strings.TrimPrefix(url, "http://")
+		// Remove any path
+		if idx := strings.Index(url, "/"); idx != -1 {
+			url = url[:idx]
+		}
+		return url, nil
+	default:
+		return "", fmt.Errorf("unknown tunnel property %s", property)
 	}
 }

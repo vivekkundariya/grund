@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/vivekkundariya/grund/internal/application/ports"
+	"github.com/vivekkundariya/grund/internal/config"
 	"github.com/vivekkundariya/grund/internal/domain/infrastructure"
 	"github.com/vivekkundariya/grund/internal/domain/service"
 	"github.com/vivekkundariya/grund/internal/ui"
@@ -29,6 +30,7 @@ type UpCommandHandler struct {
 	provisioner      ports.InfrastructureProvisioner
 	composeGenerator ports.ComposeGenerator
 	healthChecker    ports.HealthChecker
+	tunnelManager    ports.TunnelManager // optional, can be nil
 }
 
 // NewUpCommandHandler creates a new up command handler
@@ -39,6 +41,7 @@ func NewUpCommandHandler(
 	provisioner ports.InfrastructureProvisioner,
 	composeGenerator ports.ComposeGenerator,
 	healthChecker ports.HealthChecker,
+	tunnelManager ports.TunnelManager,
 ) *UpCommandHandler {
 	return &UpCommandHandler{
 		serviceRepo:      serviceRepo,
@@ -47,6 +50,7 @@ func NewUpCommandHandler(
 		provisioner:      provisioner,
 		composeGenerator: composeGenerator,
 		healthChecker:    healthChecker,
+		tunnelManager:    tunnelManager,
 	}
 }
 
@@ -107,6 +111,15 @@ func (h *UpCommandHandler) Handle(ctx context.Context, cmd UpCommand) error {
 	}
 	if infraReqs.SQS != nil || infraReqs.SNS != nil || infraReqs.S3 != nil {
 		ui.Successf("AWS resources provisioned")
+	}
+
+	// 8.5. Start tunnels if configured
+	if infraReqs.Tunnel != nil && h.tunnelManager != nil {
+		ui.Step("Starting tunnels...")
+		if err := h.startTunnels(ctx, infraReqs.Tunnel); err != nil {
+			return fmt.Errorf("failed to start tunnels: %w", err)
+		}
+		ui.Successf("Tunnels started")
 	}
 
 	// 9. Start services in parallel (no ordering enforced)
@@ -243,4 +256,47 @@ func (h *UpCommandHandler) generateCompose(services []*service.Service, req infr
 
 func (h *UpCommandHandler) startServices(ctx context.Context, order []service.ServiceName) error {
 	return h.orchestrator.StartServices(ctx, order)
+}
+
+// startTunnels starts tunnels based on the tunnel requirement
+func (h *UpCommandHandler) startTunnels(ctx context.Context, tunnelReq *infrastructure.TunnelRequirement) error {
+	if tunnelReq == nil || len(tunnelReq.Targets) == 0 {
+		return nil
+	}
+
+	// Convert domain targets to config targets for the manager
+	cfg := &config.TunnelConfig{
+		Provider: tunnelReq.Provider,
+		Targets:  make([]config.TunnelTarget, len(tunnelReq.Targets)),
+	}
+	for i, t := range tunnelReq.Targets {
+		cfg.Targets[i] = config.TunnelTarget{
+			Name: t.Name,
+			Host: t.Host,
+			Port: t.Port,
+		}
+	}
+
+	// Resolve placeholders in targets (for now, just use the raw values)
+	// TODO: In future, resolve ${localstack.host} etc.
+	resolvedTargets := make([]ports.ResolvedTunnelTarget, len(tunnelReq.Targets))
+	for i, t := range tunnelReq.Targets {
+		resolvedTargets[i] = ports.ResolvedTunnelTarget{
+			Name: t.Name,
+			Host: t.Host,
+			Port: t.Port,
+		}
+	}
+
+	tunnels, err := h.tunnelManager.StartAll(ctx, cfg, resolvedTargets)
+	if err != nil {
+		return err
+	}
+
+	// Log the tunnel URLs
+	for _, t := range tunnels {
+		ui.Infof("  %s: %s -> %s", t.Name, t.PublicURL, t.LocalAddr)
+	}
+
+	return nil
 }

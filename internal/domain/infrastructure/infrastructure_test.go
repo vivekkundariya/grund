@@ -409,3 +409,49 @@ func TestAggregate_S3Buckets_Deduplication(t *testing.T) {
 		t.Errorf("Aggregate() S3.Buckets has %d buckets, want 3 (deduplicated)", len(result.S3.Buckets))
 	}
 }
+
+func TestInfrastructureRequirementsTunnel(t *testing.T) {
+	reqs := InfrastructureRequirements{
+		Tunnel: &TunnelRequirement{
+			Provider: "cloudflared",
+			Targets: []TunnelTargetRequirement{
+				{Name: "localstack", Host: "${localstack.host}", Port: "${localstack.port}"},
+			},
+		},
+	}
+
+	if reqs.Tunnel == nil {
+		t.Fatal("expected tunnel requirement")
+	}
+	if reqs.Tunnel.Provider != "cloudflared" {
+		t.Errorf("expected cloudflared, got %s", reqs.Tunnel.Provider)
+	}
+}
+
+func TestAggregateTunnel(t *testing.T) {
+	req1 := InfrastructureRequirements{
+		Tunnel: &TunnelRequirement{
+			Provider: "cloudflared",
+			Targets: []TunnelTargetRequirement{
+				{Name: "localstack", Host: "localhost", Port: "4566"},
+			},
+		},
+	}
+	req2 := InfrastructureRequirements{
+		Tunnel: &TunnelRequirement{
+			Provider: "cloudflared",
+			Targets: []TunnelTargetRequirement{
+				{Name: "api", Host: "localhost", Port: "8080"},
+			},
+		},
+	}
+
+	result := Aggregate(req1, req2)
+
+	if result.Tunnel == nil {
+		t.Fatal("expected aggregated tunnel")
+	}
+	if len(result.Tunnel.Targets) != 2 {
+		t.Errorf("expected 2 targets, got %d", len(result.Tunnel.Targets))
+	}
+}

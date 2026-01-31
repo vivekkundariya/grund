@@ -1,4 +1,4 @@
-.PHONY: build install test test-unit test-integration test-e2e test-coverage clean run fmt lint
+.PHONY: build install test test-unit test-integration test-e2e test-race test-coverage clean run fmt lint
 
 fmt:
 	gofmt -w .
@@ -12,8 +12,7 @@ build: lint
 install:
 	go install .
 
-test:
-	go test ./...
+test: test-unit test-integration test-e2e test-race test-coverage
 
 test-unit:
 	go test ./internal/domain/... -v
@@ -24,13 +23,13 @@ test-integration:
 test-e2e:
 	go test ./test/integration/... -v
 
+test-race:
+	go test -race ./...
+
 test-coverage:
 	go test ./... -coverprofile=coverage.out
 	go tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report generated: coverage.html"
-
-test-race:
-	go test -race ./...
 
 clean:
 	rm -rf bin/

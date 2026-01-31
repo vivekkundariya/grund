@@ -18,6 +18,7 @@ type InfrastructureRequirements struct {
 	SQS      *SQSConfig
 	SNS      *SNSConfig
 	S3       *S3Config
+	Tunnel   *TunnelRequirement
 }
 
 // Has checks if a specific infrastructure type is required
@@ -94,6 +95,19 @@ type BucketConfig struct {
 	Seed string
 }
 
+// TunnelRequirement represents tunnel infrastructure needs
+type TunnelRequirement struct {
+	Provider string
+	Targets  []TunnelTargetRequirement
+}
+
+// TunnelTargetRequirement represents a single tunnel target
+type TunnelTargetRequirement struct {
+	Name string
+	Host string
+	Port string
+}
+
 // Aggregate aggregates infrastructure requirements from multiple services
 // - Single-instance resources (Postgres, MongoDB, Redis): Creates one shared instance
 // - Multi-instance resources (SQS, SNS, S3): Deduplicates by name
@@ -152,6 +166,27 @@ func Aggregate(requirements ...InfrastructureRequirements) InfrastructureRequire
 				if !seenBuckets[bucket.Name] {
 					seenBuckets[bucket.Name] = true
 					aggregated.S3.Buckets = append(aggregated.S3.Buckets, bucket)
+				}
+			}
+		}
+
+		// Aggregate tunnel targets (deduplicate by name)
+		if req.Tunnel != nil {
+			if aggregated.Tunnel == nil {
+				aggregated.Tunnel = &TunnelRequirement{
+					Provider: req.Tunnel.Provider,
+					Targets:  make([]TunnelTargetRequirement, 0),
+				}
+			}
+			// Add targets, avoiding duplicates by name
+			existingNames := make(map[string]bool)
+			for _, t := range aggregated.Tunnel.Targets {
+				existingNames[t.Name] = true
+			}
+			for _, t := range req.Tunnel.Targets {
+				if !existingNames[t.Name] {
+					aggregated.Tunnel.Targets = append(aggregated.Tunnel.Targets, t)
+					existingNames[t.Name] = true
 				}
 			}
 		}

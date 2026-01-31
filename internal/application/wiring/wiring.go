@@ -12,6 +12,7 @@ import (
 	"github.com/vivekkundariya/grund/internal/infrastructure/config"
 	"github.com/vivekkundariya/grund/internal/infrastructure/docker"
 	"github.com/vivekkundariya/grund/internal/infrastructure/generator"
+	"github.com/vivekkundariya/grund/internal/infrastructure/tunnel"
 )
 
 // Container holds all dependencies (Dependency Injection Container)
@@ -107,6 +108,9 @@ func NewContainerWithConfig(orchestrationRoot, servicesPath string, configResolv
 	composeGenerator := generator.NewComposeGenerator(grundTmpDir)
 	envResolver := generator.NewEnvironmentResolver()
 
+	// Initialize tunnel manager
+	tunnelManager := tunnel.NewManager()
+
 	// Initialize command handlers
 	upHandler := commands.NewUpCommandHandler(
 		serviceRepo,
@@ -115,6 +119,7 @@ func NewContainerWithConfig(orchestrationRoot, servicesPath string, configResolv
 		provisioner,
 		composeGenerator,
 		healthChecker,
+		tunnelManager,
 	)
 
 	downHandler := commands.NewDownCommandHandler(orchestrator)

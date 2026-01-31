@@ -64,6 +64,7 @@ type InfrastructureConfig struct {
 	SQS      *SQSConfig      `yaml:"sqs,omitempty"`
 	SNS      *SNSConfig      `yaml:"sns,omitempty"`
 	S3       *S3Config       `yaml:"s3,omitempty"`
+	Tunnel   *TunnelConfig   `yaml:"tunnel,omitempty"`
 }
 
 type PostgresConfig struct {
@@ -112,6 +113,17 @@ type S3Config struct {
 type BucketConfig struct {
 	Name string `yaml:"name"`
 	Seed string `yaml:"seed,omitempty"`
+}
+
+type TunnelConfig struct {
+	Provider string         `yaml:"provider"` // "cloudflared" or "ngrok"
+	Targets  []TunnelTarget `yaml:"targets"`
+}
+
+type TunnelTarget struct {
+	Name string `yaml:"name"` // identifier for ${tunnel.<name>.url}
+	Host string `yaml:"host"` // supports placeholders
+	Port string `yaml:"port"` // string to support placeholders
 }
 
 // ServiceRegistry represents the services.yaml in the orchestration repo

@@ -51,6 +51,9 @@ type EnvironmentContext struct {
 
 	// LocalStack endpoint
 	LocalStack LocalStackContext
+
+	// Tunnel contexts (cloudflare tunnels)
+	Tunnel map[string]TunnelContext
 }
 
 // InfrastructureContext provides infrastructure connection details
@@ -98,6 +101,12 @@ type LocalStackContext struct {
 	AccountID       string
 }
 
+// TunnelContext provides tunnel connection details
+type TunnelContext struct {
+	Name      string
+	PublicURL string // Full URL like https://abc.trycloudflare.com
+}
+
 // NewDefaultEnvironmentContext creates a default environment context
 // with standard LocalStack values
 func NewDefaultEnvironmentContext() EnvironmentContext {
@@ -114,5 +123,6 @@ func NewDefaultEnvironmentContext() EnvironmentContext {
 			SecretAccessKey: "test",
 			AccountID:       "000000000000",
 		},
+		Tunnel: make(map[string]TunnelContext),
 	}
 }
