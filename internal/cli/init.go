@@ -10,30 +10,18 @@ import (
 	"github.com/vivekkundariya/grund/internal/ui"
 )
 
-var (
-	initSkipAI bool
-)
-
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Initialize Grund and set up AI assistant skills",
-	Long: `Initialize Grund global configuration and optionally set up AI assistant skills.
+	Long: `Initialize Grund global configuration and set up AI assistant skills.
 
-This command performs two main tasks:
-  1. Creates or updates the global config at ~/.grund/config.yaml
-  2. Installs AI assistant skill files for Claude Code and Cursor
+This command performs two tasks:
+  1. Creates global config at ~/.grund/config.yaml (or re-initializes if exists)
+  2. Installs AI assistant skills for Claude Code and/or Cursor
 
-The AI skill setup helps AI coding assistants understand your Grund configuration
-and provide better assistance with local development orchestration.
-
-Examples:
-  grund init              # Full initialization with AI skills
-  grund init --skip-ai    # Only initialize config, skip AI setup`,
+Example:
+  grund init`,
 	RunE: runInit,
-}
-
-func init() {
-	initCmd.Flags().BoolVar(&initSkipAI, "skip-ai", false, "Skip AI assistant skill setup")
 }
 
 func runInit(cmd *cobra.Command, args []string) error {
@@ -45,14 +33,10 @@ func runInit(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("config initialization failed: %w", err)
 	}
 
-	// Step 2: Handle AI skills installation (unless skipped)
-	if !initSkipAI {
-		fmt.Println()
-		if err := handleAISkillsInit(); err != nil {
-			return fmt.Errorf("AI skills setup failed: %w", err)
-		}
-	} else {
-		ui.Infof("Skipping AI assistant skill setup (--skip-ai)")
+	// Step 2: Handle AI skills installation
+	fmt.Println()
+	if err := handleAISkillsInit(); err != nil {
+		return fmt.Errorf("AI skills setup failed: %w", err)
 	}
 
 	fmt.Println()
