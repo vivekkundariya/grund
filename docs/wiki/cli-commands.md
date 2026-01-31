@@ -50,11 +50,12 @@ grund up [services...] [flags]
 2. Builds dependency graph (circular dependencies are allowed)
 3. Loads all transitive dependencies
 4. Aggregates infrastructure requirements from all services
-5. Generates per-service compose files in `~/.grund/tmp/`
-6. Starts infrastructure containers (postgres, mongodb, redis, localstack)
-7. Waits for infrastructure health checks
-8. Provisions resources (creates databases, SQS queues, SNS topics, S3 buckets)
-9. Starts all services in parallel (services handle reconnection)
+5. **Starts tunnels** (if configured) - cloudflared/ngrok for exposing LocalStack, etc.
+6. Generates per-service compose files in `~/.grund/tmp/` (with tunnel URLs resolved)
+7. Starts infrastructure containers (postgres, mongodb, redis, localstack)
+8. Waits for infrastructure health checks
+9. Provisions resources (creates databases, SQS queues, SNS topics, S3 buckets)
+10. Starts all services in parallel (services handle reconnection)
 
 **Examples:**
 ```bash
@@ -75,6 +76,18 @@ grund up user-service --build
 
 # Verbose output for debugging
 grund up user-service -v
+
+# Service with tunnel (LocalStack exposed via cloudflared)
+# Tunnel URL available as ${tunnel.localstack.url} in env_refs
+grund up s3-upload-service
+```
+
+**Tunnel Output Example:**
+```
+→ Starting tunnels...
+  localstack: https://abc-xyz.trycloudflare.com -> localhost:4566
+✓ Tunnels started
+→ Generating docker-compose configuration...
 ```
 
 ---

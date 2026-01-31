@@ -146,6 +146,18 @@ type InfrastructureConfigDTO struct {
 	SQS      *SQSConfigDTO      `yaml:"sqs,omitempty"`
 	SNS      *SNSConfigDTO      `yaml:"sns,omitempty"`
 	S3       *S3ConfigDTO       `yaml:"s3,omitempty"`
+	Tunnel   *TunnelConfigDTO   `yaml:"tunnel,omitempty"`
+}
+
+type TunnelConfigDTO struct {
+	Provider string            `yaml:"provider"` // "cloudflared" or "ngrok"
+	Targets  []TunnelTargetDTO `yaml:"targets"`
+}
+
+type TunnelTargetDTO struct {
+	Name string `yaml:"name"`
+	Host string `yaml:"host"`
+	Port string `yaml:"port"`
 }
 
 type PostgresConfigDTO struct {
@@ -340,6 +352,21 @@ func (r *ServiceRepositoryImpl) toInfrastructureRequirements(dto InfrastructureC
 		req.S3 = &infrastructure.S3Config{Buckets: buckets}
 	}
 
+	if dto.Tunnel != nil {
+		var targets []infrastructure.TunnelTargetRequirement
+		for _, t := range dto.Tunnel.Targets {
+			targets = append(targets, infrastructure.TunnelTargetRequirement{
+				Name: t.Name,
+				Host: t.Host,
+				Port: t.Port,
+			})
+		}
+		req.Tunnel = &infrastructure.TunnelRequirement{
+			Provider: dto.Tunnel.Provider,
+			Targets:  targets,
+		}
+	}
+
 	return req
 }
 
@@ -416,4 +443,44 @@ func parseDuration(s string) (time.Duration, error) {
 	// Simple parser for duration strings like "5s", "10m"
 	// Can be enhanced
 	return time.ParseDuration(s)
+}
+
+// ExtractTunnelConfig extracts just the tunnel configuration from a service path
+// This is a lightweight operation that doesn't resolve env_refs
+func (r *ServiceRepositoryImpl) ExtractTunnelConfig(name service.ServiceName) (*infrastructure.TunnelRequirement, error) {
+	servicePath, err := r.registryRepo.GetServicePath(name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get service path: %w", err)
+	}
+
+	configPath := filepath.Join(servicePath, "grund.yaml")
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read config file: %w", err)
+	}
+
+	var configDTO ServiceConfigDTO
+	if err := yaml.Unmarshal(data, &configDTO); err != nil {
+		return nil, fmt.Errorf("failed to parse YAML: %w", err)
+	}
+
+	// Only extract tunnel config
+	if configDTO.Requires.Infrastructure.Tunnel == nil {
+		return nil, nil
+	}
+
+	tunnelDTO := configDTO.Requires.Infrastructure.Tunnel
+	var targets []infrastructure.TunnelTargetRequirement
+	for _, t := range tunnelDTO.Targets {
+		targets = append(targets, infrastructure.TunnelTargetRequirement{
+			Name: t.Name,
+			Host: t.Host,
+			Port: t.Port,
+		})
+	}
+
+	return &infrastructure.TunnelRequirement{
+		Provider: tunnelDTO.Provider,
+		Targets:  targets,
+	}, nil
 }

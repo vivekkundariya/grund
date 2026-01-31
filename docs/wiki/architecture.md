@@ -105,6 +105,19 @@ type InfrastructureRequirements struct {
     SQS      *SQSConfig
     SNS      *SNSConfig
     S3       *S3Config
+    Tunnel   *TunnelRequirement  // Tunnel infrastructure for exposing services
+}
+
+// Tunnel configuration for cloudflared/ngrok
+type TunnelRequirement struct {
+    Provider string                    // "cloudflared" or "ngrok"
+    Targets  []TunnelTargetRequirement
+}
+
+type TunnelTargetRequirement struct {
+    Name string  // Identifier for ${tunnel.<name>.url}
+    Host string  // Local host to tunnel
+    Port string  // Local port to tunnel
 }
 
 func (r *InfrastructureRequirements) Has(infraType string) bool { ... }
@@ -138,15 +151,17 @@ type UpCommandHandler struct {
     provisioner      ports.InfrastructureProvisioner
     composeGenerator ports.ComposeGenerator
     healthChecker    ports.HealthChecker
+    tunnelManager    ports.TunnelManager  // Manages cloudflared/ngrok tunnels
 }
 
 func (h *UpCommandHandler) Handle(ctx context.Context, cmd UpCommand) error {
     // 1. Load services and resolve dependencies
     // 2. Aggregate infrastructure requirements
-    // 3. Generate docker-compose.yaml
-    // 4. Start infrastructure and wait for health
-    // 5. Provision resources (databases, queues, etc.)
-    // 6. Start application services
+    // 3. Start tunnels FIRST (so URLs available for env_refs)
+    // 4. Generate docker-compose.yaml with tunnel context
+    // 5. Start infrastructure and wait for health
+    // 6. Provision resources (databases, queues, etc.)
+    // 7. Start application services
 }
 
 // DownCommandHandler - stops all services
@@ -212,6 +227,22 @@ type InfrastructureProvisioner interface {
 // Generator interfaces
 type ComposeGenerator interface {
     Generate(services []*service.Service, infra infrastructure.InfrastructureRequirements) (*ComposeFileSet, error)
+    GenerateWithTunnels(services []*service.Service, infra infrastructure.InfrastructureRequirements, tunnelCtx map[string]TunnelContext) (*ComposeFileSet, error)
+}
+
+// Tunnel Manager interface
+type TunnelManager interface {
+    ValidateConfig(cfg *config.TunnelConfig) error
+    StartAll(ctx context.Context, cfg *config.TunnelConfig, targets []ResolvedTunnelTarget) ([]TunnelInfo, error)
+    StopAll() error
+    GetTunnels() map[string]TunnelInfo
+}
+
+// TunnelInfo represents a running tunnel
+type TunnelInfo struct {
+    Name      string  // e.g., "localstack"
+    PublicURL string  // e.g., "https://abc.trycloudflare.com"
+    LocalAddr string  // e.g., "localhost:4566"
 }
 
 // ComposeFileSet tracks generated per-service compose files
@@ -240,6 +271,7 @@ type HealthChecker interface {
 - `aws/` - LocalStack provisioner for AWS services
 - `config/` - File-based repositories
 - `generator/` - Compose file and environment variable generators
+- `tunnel/` - Tunnel manager for cloudflared/ngrok
 
 **Docker Orchestrator**:
 
@@ -391,6 +423,7 @@ type Container struct {
     ComposeGenerator interface{}  // ports.ComposeGenerator
     EnvResolver      interface{}  // ports.EnvironmentResolver
     HealthChecker    interface{}  // ports.HealthChecker
+    TunnelManager    interface{}  // ports.TunnelManager
 
     // Command Handlers
     UpCommandHandler      *commands.UpCommandHandler
@@ -502,6 +535,8 @@ internal/
 │   │   └── health_checker.go
 │   ├── aws/              # AWS/LocalStack
 │   │   └── provisioner.go
+│   ├── tunnel/           # Tunnel management (cloudflared/ngrok)
+│   │   └── manager.go
 │   ├── config/           # File-based repositories
 │   │   ├── service_repository.go
 │   │   └── registry_repository.go
@@ -549,27 +584,36 @@ internal/
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ 3. Infrastructure: Generate per-service compose files                   │
-│    ComposeGenerator.Generate(services, infraRequirements)               │
+│ 3. Tunnel: Start tunnels FIRST (if configured)                          │
+│    - TunnelManager.StartAll() → cloudflared/ngrok                      │
+│    - Captures public URLs (e.g., https://abc.trycloudflare.com)        │
+│    - URLs available for ${tunnel.<name>.url} resolution                 │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ 4. Infrastructure: Start containers                                     │
+│ 4. Infrastructure: Generate per-service compose files                   │
+│    ComposeGenerator.GenerateWithTunnels(services, infra, tunnelCtx)    │
+│    - Resolves ${tunnel.localstack.url} to actual public URL            │
+└────────────────────────────────────┬────────────────────────────────────┘
+                                     │
+                                     ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 5. Infrastructure: Start containers                                     │
 │    - DockerOrchestrator.StartInfrastructure() → postgres, redis, etc.  │
 │    - HealthChecker.WaitForHealthy() → wait for ready                   │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ 5. Infrastructure: Provision resources                                  │
+│ 6. Infrastructure: Provision resources                                  │
 │    - PostgresProvisioner.Provision() → create database                 │
 │    - LocalStackProvisioner.Provision() → create queues/topics          │
 └────────────────────────────────────┬────────────────────────────────────┘
                                      │
                                      ▼
 ┌─────────────────────────────────────────────────────────────────────────┐
-│ 6. Infrastructure: Start application services                           │
+│ 7. Infrastructure: Start application services                           │
 │    DockerOrchestrator.StartServices(["user-service"])                  │
 └─────────────────────────────────────────────────────────────────────────┘
 ```

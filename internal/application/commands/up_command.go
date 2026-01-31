@@ -87,9 +87,22 @@ func (h *UpCommandHandler) Handle(ctx context.Context, cmd UpCommand) error {
 	ui.Debug("Infrastructure requirements: postgres=%v, mongodb=%v, redis=%v, sqs=%v",
 		infraReqs.Postgres != nil, infraReqs.MongoDB != nil, infraReqs.Redis != nil, infraReqs.SQS != nil)
 
-	// 6. Generate docker-compose
+	// 5.5. Start tunnels FIRST if configured (so tunnel URLs are available for env_refs)
+	// Tunnels point to localhost ports that will be bound by infrastructure containers
+	var tunnelContext map[string]ports.TunnelContext
+	if infraReqs.Tunnel != nil && h.tunnelManager != nil {
+		ui.Step("Starting tunnels...")
+		var err error
+		tunnelContext, err = h.startTunnels(ctx, infraReqs.Tunnel)
+		if err != nil {
+			return fmt.Errorf("failed to start tunnels: %w", err)
+		}
+		ui.Successf("Tunnels started")
+	}
+
+	// 6. Generate docker-compose (now with tunnel context for env_refs resolution)
 	ui.Step("Generating docker-compose configuration...")
-	if err := h.generateCompose(services, infraReqs); err != nil {
+	if err := h.generateCompose(services, infraReqs, tunnelContext); err != nil {
 		return fmt.Errorf("failed to generate compose file: %w", err)
 	}
 	ui.Successf("Docker compose file generated")
@@ -111,15 +124,6 @@ func (h *UpCommandHandler) Handle(ctx context.Context, cmd UpCommand) error {
 	}
 	if infraReqs.SQS != nil || infraReqs.SNS != nil || infraReqs.S3 != nil {
 		ui.Successf("AWS resources provisioned")
-	}
-
-	// 8.5. Start tunnels if configured
-	if infraReqs.Tunnel != nil && h.tunnelManager != nil {
-		ui.Step("Starting tunnels...")
-		if err := h.startTunnels(ctx, infraReqs.Tunnel); err != nil {
-			return fmt.Errorf("failed to start tunnels: %w", err)
-		}
-		ui.Successf("Tunnels started")
 	}
 
 	// 9. Start services in parallel (no ordering enforced)
@@ -243,8 +247,15 @@ func (h *UpCommandHandler) provisionInfrastructure(ctx context.Context, req infr
 	return nil
 }
 
-func (h *UpCommandHandler) generateCompose(services []*service.Service, req infrastructure.InfrastructureRequirements) error {
-	fileSet, err := h.composeGenerator.Generate(services, req)
+func (h *UpCommandHandler) generateCompose(services []*service.Service, req infrastructure.InfrastructureRequirements, tunnelCtx map[string]ports.TunnelContext) error {
+	var fileSet *ports.ComposeFileSet
+	var err error
+
+	if tunnelCtx != nil && len(tunnelCtx) > 0 {
+		fileSet, err = h.composeGenerator.GenerateWithTunnels(services, req, tunnelCtx)
+	} else {
+		fileSet, err = h.composeGenerator.Generate(services, req)
+	}
 	if err != nil {
 		return err
 	}
@@ -258,10 +269,10 @@ func (h *UpCommandHandler) startServices(ctx context.Context, order []service.Se
 	return h.orchestrator.StartServices(ctx, order)
 }
 
-// startTunnels starts tunnels based on the tunnel requirement
-func (h *UpCommandHandler) startTunnels(ctx context.Context, tunnelReq *infrastructure.TunnelRequirement) error {
+// startTunnels starts tunnels based on the tunnel requirement and returns tunnel context
+func (h *UpCommandHandler) startTunnels(ctx context.Context, tunnelReq *infrastructure.TunnelRequirement) (map[string]ports.TunnelContext, error) {
 	if tunnelReq == nil || len(tunnelReq.Targets) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	// Convert domain targets to config targets for the manager
@@ -290,13 +301,18 @@ func (h *UpCommandHandler) startTunnels(ctx context.Context, tunnelReq *infrastr
 
 	tunnels, err := h.tunnelManager.StartAll(ctx, cfg, resolvedTargets)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	// Log the tunnel URLs
+	// Build tunnel context for env_refs resolution
+	tunnelContext := make(map[string]ports.TunnelContext)
 	for _, t := range tunnels {
 		ui.Infof("  %s: %s -> %s", t.Name, t.PublicURL, t.LocalAddr)
+		tunnelContext[t.Name] = ports.TunnelContext{
+			Name:      t.Name,
+			PublicURL: t.PublicURL,
+		}
 	}
 
-	return nil
+	return tunnelContext, nil
 }
