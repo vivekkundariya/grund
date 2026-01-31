@@ -12,6 +12,7 @@ import (
 	"github.com/jedib0t/go-pretty/v6/text"
 	"github.com/spf13/cobra"
 	"github.com/vivekkundariya/grund/internal/application/queries"
+	"github.com/vivekkundariya/grund/internal/cli/shared"
 	"github.com/vivekkundariya/grund/internal/domain/service"
 	"github.com/vivekkundariya/grund/internal/infrastructure/generator"
 	"github.com/vivekkundariya/grund/internal/ui"
@@ -57,7 +58,7 @@ func init() {
 }
 
 func runSecretsList(cmd *cobra.Command, args []string) error {
-	if container == nil {
+	if shared.Container == nil {
 		return fmt.Errorf("container not initialized")
 	}
 
@@ -152,7 +153,7 @@ func runSecretsList(cmd *cobra.Command, args []string) error {
 }
 
 func runSecretsInit(cmd *cobra.Command, args []string) error {
-	if container == nil {
+	if shared.Container == nil {
 		return fmt.Errorf("container not initialized")
 	}
 
@@ -282,7 +283,7 @@ func getServicesWithDependencies(cmd *cobra.Command, serviceNames []string) ([]*
 	for _, name := range serviceNames {
 		// Get service config
 		query := queries.ConfigQuery{ServiceName: name}
-		result, err := container.ConfigQueryHandler.Handle(query)
+		result, err := shared.Container.ConfigQueryHandler.Handle(query)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get service %s: %w", name, err)
 		}
@@ -299,7 +300,7 @@ func getServicesWithDependencies(cmd *cobra.Command, serviceNames []string) ([]*
 				continue
 			}
 			depQuery := queries.ConfigQuery{ServiceName: depName}
-			depResult, err := container.ConfigQueryHandler.Handle(depQuery)
+			depResult, err := shared.Container.ConfigQueryHandler.Handle(depQuery)
 			if err != nil {
 				ui.Warnf("Could not load dependency %s: %v", depName, err)
 				continue

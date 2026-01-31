@@ -1,4 +1,4 @@
-package cli
+package service
 
 import (
 	"bufio"
@@ -41,7 +41,7 @@ type mongoInit struct {
 
 var initCmd = &cobra.Command{
 	Use:   "init",
-	Short: "Initialize grund in current service",
+	Short: "Initialize grund.yaml in current directory",
 	Long: `Create a grund.yaml file in the current directory with an interactive setup.
 
 This command walks you through configuring:
@@ -49,8 +49,16 @@ This command walks you through configuring:
   - Build configuration (Dockerfile)
   - Health check endpoint
   - Infrastructure requirements (Postgres, MongoDB, Redis, SQS, SNS, S3)
-  - Service dependencies`,
+  - Service dependencies
+
+Example:
+  cd my-service
+  grund service init`,
 	RunE: runInit,
+}
+
+func init() {
+	Cmd.AddCommand(initCmd)
 }
 
 func runInit(cmd *cobra.Command, args []string) error {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/vivekkundariya/grund/internal/application/commands"
+	"github.com/vivekkundariya/grund/internal/cli/shared"
 	"github.com/vivekkundariya/grund/internal/infrastructure/generator"
 	"github.com/vivekkundariya/grund/internal/ui"
 )
@@ -23,7 +24,7 @@ var upCmd = &cobra.Command{
 Infrastructure will be started first, followed by services in dependency order.`,
 	Args: cobra.MinimumNArgs(1),
 	RunE: func(cmd *cobra.Command, args []string) error {
-		if container == nil {
+		if shared.Container == nil {
 			return fmt.Errorf("container not initialized")
 		}
 
@@ -40,7 +41,7 @@ Infrastructure will be started first, followed by services in dependency order.`
 			Local:        upLocal,
 		}
 
-		return container.UpCommandHandler.Handle(cmd.Context(), upCmd)
+		return shared.Container.UpCommandHandler.Handle(cmd.Context(), upCmd)
 	},
 }
 
