@@ -80,26 +80,32 @@ grund --version
 
 ## Getting Started
 
-### Step 1: Create an Orchestration Repository
+### Quick Start (Recommended)
 
-Create a central repository to manage all your services:
+Run the interactive setup wizard:
 
 ```bash
-mkdir my-company-local-dev
-cd my-company-local-dev
+grund init
 ```
 
-### Step 2: Initialize Global Configuration
+This walks you through:
+1. **Global config** - Creates `~/.grund/config.yaml`
+2. **Services setup** - Scans your projects folder and registers services
+3. **AI assistant skills** - Installs skills for Claude Code and/or Cursor
+
+### Manual Setup
+
+#### Step 1: Initialize Global Configuration
 
 ```bash
-grund setup
+grund config init
 ```
 
 This creates `~/.grund/config.yaml` with default settings.
 
-### Step 3: Create Services Registry
+#### Step 2: Create Services Registry
 
-Create a `services.yaml` file in your orchestration repo:
+Create a `services.yaml` file (or use `grund init` to auto-generate):
 
 ```yaml
 version: "1"
@@ -112,32 +118,15 @@ services:
   payment-service:
     repo: git@github.com:mycompany/payment-service.git
     path: ~/projects/payment-service
-
-  notification-service:
-    repo: git@github.com:mycompany/notification-service.git
-    path: ~/projects/notification-service
 ```
 
-### Step 4: Set Environment Variable
-
-Add to your `~/.zshrc` or `~/.bashrc`:
-
-```bash
-export GRUND_CONFIG=~/my-company-local-dev/services.yaml
-```
-
-Reload your shell:
-```bash
-source ~/.zshrc
-```
-
-### Step 5: Initialize Services
+#### Step 3: Initialize Services
 
 In each service repository, create a `grund.yaml`:
 
 ```bash
 cd ~/projects/user-service
-grund init
+grund service init
 ```
 
 The interactive wizard will guide you through:
@@ -145,7 +134,7 @@ The interactive wizard will guide you through:
 - Infrastructure requirements (PostgreSQL, Redis, etc.)
 - Service dependencies
 
-### Step 6: Start Services
+#### Step 4: Start Services
 
 ```bash
 grund up user-service
@@ -162,7 +151,7 @@ grund up user-service
 
 2. **Initialize Grund:**
    ```bash
-   grund init
+   grund service init
    ```
 
 3. **Or create `grund.yaml` manually:**
@@ -195,9 +184,9 @@ grund up user-service
 
 4. **Add infrastructure as needed:**
    ```bash
-   grund add postgres --database my_service_db
-   grund add redis
-   grund add sqs --queue events-queue
+   grund service add postgres my_service_db
+   grund service add redis
+   grund service add queue events-queue
    ```
 
 5. **Register in `services.yaml`:**
@@ -214,7 +203,7 @@ If `payment-service` depends on `user-service`:
 
 ```bash
 cd ~/projects/payment-service
-grund add service user-service
+grund service add dependency user-service
 ```
 
 This adds to `grund.yaml`:
@@ -231,37 +220,37 @@ env_refs:
 
 #### PostgreSQL
 ```bash
-grund add postgres --database myapp_db --migrations ./migrations
+grund service add postgres myapp_db
 ```
 
 #### MongoDB
 ```bash
-grund add mongodb --database myapp_db
+grund service add mongodb myapp_db
 ```
 
 #### Redis
 ```bash
-grund add redis
+grund service add redis
 ```
 
 #### SQS (via LocalStack)
 ```bash
-grund add sqs --queue order-events --dlq
+grund service add queue order-events
 ```
 
 #### SNS (via LocalStack)
 ```bash
-grund add sns --topic notifications
+grund service add topic notifications
 ```
 
 #### S3 (via LocalStack)
 ```bash
-grund add s3 --bucket uploads
+grund service add bucket uploads
 ```
 
 #### Tunnel (cloudflared or ngrok)
 ```bash
-grund add tunnel --provider cloudflared --target localstack
+grund service add tunnel my-tunnel
 ```
 
 Expose local endpoints to the internet. Useful for:
@@ -339,14 +328,27 @@ grund reset -v           # Stop and remove volumes (database data)
 grund reset -v --images  # Full cleanup (volumes + images)
 ```
 
-### `grund config`
-Show resolved configuration for a service.
+### `grund init`
+Interactive setup wizard for first-time users.
 
 ```bash
-grund config user-service
+grund init
 ```
 
-Output:
+Walks through:
+1. Global config initialization
+2. Projects folder scanning and service registration
+3. AI assistant skills installation (Claude Code / Cursor)
+
+### `grund config show`
+Show configuration and settings.
+
+```bash
+grund config show                # Show global settings and registered services
+grund config show user-service   # Show resolved config for a service
+```
+
+Output for service:
 ```
   Service: user-service
   Type:    go
@@ -364,32 +366,40 @@ Output:
 ╰─────────────────────┴──────────────────────────────────────╯
 ```
 
-### `grund init`
+### `grund config init`
+Initialize global configuration at `~/.grund/config.yaml`.
+
+```bash
+grund config init
+```
+
+### `grund service init`
 Initialize `grund.yaml` in current directory.
 
 ```bash
 cd ~/projects/my-service
-grund init
+grund service init
 ```
 
-### `grund add`
+### `grund service add`
 Add resources to existing `grund.yaml`.
 
 ```bash
-grund add postgres --database mydb
-grund add mongodb --database mydb
-grund add redis
-grund add sqs --queue my-queue --dlq
-grund add sns --topic my-topic
-grund add s3 --bucket my-bucket
-grund add service other-service
+grund service add postgres <database>    # Add PostgreSQL
+grund service add mongodb <database>     # Add MongoDB
+grund service add redis                  # Add Redis
+grund service add queue <name>           # Add SQS queue
+grund service add topic <name>           # Add SNS topic
+grund service add bucket <name>          # Add S3 bucket
+grund service add tunnel <name>          # Add tunnel (cloudflared/ngrok)
+grund service add dependency <service>   # Add service dependency
 ```
 
-### `grund setup`
-Initialize global configuration at `~/.grund/config.yaml`.
+### `grund service validate`
+Validate `grund.yaml` configuration.
 
 ```bash
-grund setup
+grund service validate
 ```
 
 ## Configuration Reference
@@ -471,7 +481,20 @@ services:
 ### Global Configuration (`~/.grund/config.yaml`)
 
 ```yaml
-default_services_path: ~/my-company-local-dev/services.yaml
+version: "1"
+
+services:
+  user-service:
+    path: ~/projects/user-service
+    repo: git@github.com:mycompany/user-service.git
+
+# Optional - uses defaults if not specified
+docker:
+  compose_command: docker compose    # default
+
+localstack:
+  endpoint: http://localhost:4566    # default
+  region: us-east-1                  # default
 ```
 
 ### Environment Variable Interpolation

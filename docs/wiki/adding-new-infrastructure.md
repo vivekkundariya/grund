@@ -9,8 +9,8 @@ Adding new infrastructure requires changes across multiple layers following Grun
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                        CLI Layer                                 │
-│   internal/cli/add.go          - "grund add scylladb" command   │
-│   internal/cli/init.go         - Interactive init wizard        │
+│   internal/cli/service/add/    - "grund service add" commands   │
+│   internal/cli/service/init.go - Interactive init wizard        │
 ├─────────────────────────────────────────────────────────────────┤
 │                    Application Layer                             │
 │   internal/application/ports/  - Interface definitions          │
@@ -599,7 +599,7 @@ Add ScyllaDB documentation:
 ```markdown
 #### ScyllaDB
 ```bash
-grund add scylladb --keyspace myapp_keyspace
+grund service add scylladb myapp_keyspace
 ```
 
 ### Environment Variable Interpolation
@@ -674,11 +674,11 @@ env_refs:
 ```bash
 # Initialize a new service with ScyllaDB
 cd my-service
-grund init
+grund service init
 # Select ScyllaDB when prompted
 
 # Or add to existing service
-grund add scylladb --keyspace myapp_ks
+grund service add scylladb myapp_ks
 
 # Start the service
 grund up my-service
@@ -687,7 +687,7 @@ grund up my-service
 grund status
 
 # View config
-grund config my-service
+grund config show my-service
 ```
 
 ## Summary Checklist
